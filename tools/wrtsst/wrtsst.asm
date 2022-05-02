@@ -45,9 +45,13 @@ RAMAD2		:= 0xF343
 RAMAD3		:= 0xF344
 ENASLT		:= 0x0024		; A: SLOT#, H[7:6]: PAGE#
 BDOS		:= 0x0005
+_TERM0		:= 0x00
 _DIRIO		:= 0x06
 _STROUT		:= 0x09
-_TERM0		:= 0x00
+_FOPEN		:= 0x0F
+_FCLOSE		:= 0x10
+_SETDTA		:= 0x1A
+_RDBLK		:= 0x27
 
 ; -----------------------------------------------------------------------------
 ;	MegaSCC Defines
@@ -174,9 +178,8 @@ puthex_c::
 save_device_id:
 			dw		0
 title_message:
-			ds		"SST Checker v0.00\r\n"
-			ds		"Copyright (C)2022 HRA!\r\n"
-			ds		"Device ID: $"
+			ds		"WRTSST [SST FlashROM Writer] v0.00\r\n"
+			ds		"Copyright (C)2022 HRA!\r\n$"
 hex_characters:
 			ds		"0123456789ABCDEF"
 completed_message:
