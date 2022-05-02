@@ -1,6 +1,5 @@
 ; -----------------------------------------------------------------------------
-;   WRTSST
-;   SST Flash ROM Writer
+;   Flash ROM Driver
 ;
 ;   Copyright (C)2022 Takayuki Hara (HRA!)
 ;
@@ -33,101 +32,105 @@
 ; SOFTWARE.
 ; -----------------------------------------------------------------------------
 ; History
-; May/2nd/2022  t.hara  First release
+; May/3rd/2022  t.hara  First release
 ; -----------------------------------------------------------------------------
+MID_AMD			:= 0x01
+DID_AM29F040B	:= 0xA4
+
+MID_SST			:= 0xBF
+DID_SST39SF010A	:= 0xB5
+DID_SST39SF020A	:= 0xB6
+DID_SST39SF040	:= 0xB7
 
 ; -----------------------------------------------------------------------------
-;	MSX Defines
+; get_manufacture_name
+; input:
+;    a .... Target manufacture ID.
+; output:
+;    de ... Target string address.
+;    Zf ... 0: Unkown, 1: Matched
+; break:
+;    all
 ; -----------------------------------------------------------------------------
-RAMAD0		:= 0xF341
-RAMAD1		:= 0xF342
-RAMAD2		:= 0xF343
-RAMAD3		:= 0xF344
-ENASLT		:= 0x0024		; A: SLOT#, H[7:6]: PAGE#
-BDOS		:= 0x0005
-_TERM0		:= 0x00
-_DIRIO		:= 0x06
-_STROUT		:= 0x09
-_FOPEN		:= 0x0F
-_FCLOSE		:= 0x10
-_SETDTA		:= 0x1A
-_RDBLK		:= 0x27
+			scope	get_manufacture_name
+get_manufacture_name::
+			cp		a, MID_AMD
+			ld		de, s_amd
+			ret		z
+			cp		a, MID_SST
+			ld		de, s_sst
+			ret		z
+			ld		de, s_unknown
+			ret
+s_amd:
+			ds		"AMD\0"
+s_sst:
+			ds		"SST\0"
+s_unknown::
+			ds		"Unknown\0"
+			endscope
 
 ; -----------------------------------------------------------------------------
-;	SST Flash ROM Defines
+; get_device_name
+; input:
+;    a .... Target manufacture ID.
+; output:
+;    de ... Target string address.
+;    Zf ... 0: Unkown, 1: Matched
+; break:
+;    all
 ; -----------------------------------------------------------------------------
-CMD_2AAA	:= 0x0AAA | 0x8000
-CMD_5555	:= 0x0555 | 0xA000
+			scope	get_manufacture_name
+get_manufacture_name::
+			cp		a, DID_AM29F040B
+			ld		de, s_am29f040b
+			ret		z
+			cp		a, DID_SST39SF010A
+			ld		de, s_sst39sf010a
+			ret		z
+			cp		a, DID_SST39SF020A
+			ld		de, s_sst39sf020a
+			ret		z
+			cp		a, DID_SST39SF040
+			ld		de, s_sst39sf040
+			ret		z
+			ld		de, s_unknown
+			ret
+s_am29f040b:
+			ds		"AM29F040B\0"
+s_sst39sf010a:
+			ds		"SST39SF010A\0"
+s_sst39sf020a:
+			ds		"SST39SF020A\0"
+s_sst39sf040:
+			ds		"SST39SF040\0"
+			endscope
 
 ; -----------------------------------------------------------------------------
-;	Entry Point
+; setup_flash_command
+; input:
+;    hl ... Address table.
+; output:
+;    none
+; break:
+;    all
 ; -----------------------------------------------------------------------------
-			org		0x100
-entry_point::
-			; Change to SLOT#1 on Page1 and Page2
-			ld		a, 0x01
-			ld		h, 0x40
-			call	ENASLT				; di
-			ld		a, 0x01
-			ld		h, 0x80
-			call	ENASLT				; di
-			; Change BANK0 to BANK#0
-			ld		a, 0
-			ld		[BANK0_SEL], a
-			; Change BANK1 to BANK#0
-			ld		a, 0
-			ld		[BANK1_SEL], a
-			; Change BANK2 to BANK#1
-			ld		a, 1
-			ld		[BANK2_SEL], a
-			; Change BANK3 to BANK#6
-			ld		a, 6
-			ld		[BANK3_SEL], a
-			; EXECUTE: Software ID Entry and Read
-			ld		hl, 0x8000
-			ld		a, 0xAA
-			ld		[CMD_5555], a
-			ld		a, 0x55
-			ld		[CMD_2AAA], a
-			ld		a, 0x90
-			ld		[CMD_5555], a
-			ld		c, [hl]				; 0xBF
-			inc		hl
-			ld		b, [hl]				; Device ID
-			ld		[save_device_id], bc
-			; Restore SLOT
-			ld		a, [RAMAD1]
-			ld		h, 0x40
-			call	ENASLT				; di
-			ld		a, [RAMAD2]
-			ld		h, 0x80
-			call	ENASLT				; di
-			ei
-			; Display informations
-			ld		de, title_message
-			ld		c, _STROUT
-			call	bdos
+			scope	setup_flash_command
+setup_flash_command::
+			ld		de, jump_table
+			ld		bc, jump_table_next - jump_table
+			ldir
+			ret
+			endscope
 
-			ld		a, [save_device_id + 0]
-			call	puthex
-			ld		e, '-'
-			ld		c, _DIRIO
-			call	bdos
-			ld		a, [save_device_id + 1]
-			call	puthex
-
-			ld		de, completed_message
-			ld		c, _STROUT
-			call	bdos
-
-			ld		b, 0				; Error code: 0
-			ld		c, _TERM
-			jp		bdos
-
-save_device_id:
-			dw		0
-title_message:
-			ds		"WRTSST [SST FlashROM Writer] v0.00\r\n"
-			ds		"Copyright (C)2022 HRA!\r\n$"
-completed_message:
-			ds		"\r\nCompleted.\r\n$"
+; -----------------------------------------------------------------------------
+; jump table
+; -----------------------------------------------------------------------------
+jump_table:
+flash_write_byte::
+			jp		0
+flash_read_byte::
+			jp		0
+flash_chip_erase::
+			jp		0
+jump_table_end:
