@@ -1,6 +1,6 @@
 ; -----------------------------------------------------------------------------
-;   CHKSST
-;   SST Flash ROM Checker
+;   WRTSST
+;   SST Flash ROM Writer
 ;
 ;   Copyright (C)2022 Takayuki Hara (HRA!)
 ;
@@ -45,9 +45,9 @@ RAMAD2		:= 0xF343
 RAMAD3		:= 0xF344
 ENASLT		:= 0x0024		; A: SLOT#, H[7:6]: PAGE#
 BDOS		:= 0x0005
-_TERM0		:= 0x00
 _DIRIO		:= 0x06
 _STROUT		:= 0x09
+_TERM0		:= 0x00
 
 ; -----------------------------------------------------------------------------
 ;	MegaSCC Defines
@@ -121,7 +121,8 @@ entry_point::
 			ld		c, _STROUT
 			call	bdos
 
-			ld		c, _TERM0
+			ld		b, 0				; Error code: 0
+			ld		c, _TERM
 			jp		bdos
 
 ; -----------------------------------------------------------------------------

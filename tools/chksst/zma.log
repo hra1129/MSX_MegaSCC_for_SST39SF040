@@ -76,7 +76,7 @@ Programmed by t.hara
 000131: 46
 
 [	LD [ SAVE_DEVICE_ID ] , BC] Z80:22cyc, R800:8cyc
-000132: ed 43 8c 01
+000132: ed 43 8a 01
 
 [	LD A , [ RAMAD1 ]] Z80:14cyc, R800:6cyc
 000136: 3a 42 f3
@@ -100,7 +100,7 @@ Programmed by t.hara
 000146: fb
 
 [	LD DE , TITLE_MESSAGE] Z80:11cyc, R800:3cyc
-000147: 11 8e 01
+000147: 11 8c 01
 
 [	LD C , _STROUT] Z80:8cyc, R800:2cyc
 00014a: 0e 09
@@ -109,10 +109,10 @@ Programmed by t.hara
 00014c: cd 05 00
 
 [	LD A , [ SAVE_DEVICE_ID + 0 ]] Z80:14cyc, R800:6cyc
-00014f: 3a 8c 01
+00014f: 3a 8a 01
 
 [	CALL PUTHEX] Z80:18cyc, R800:5cyc
-000152: cd 71 01
+000152: cd 6f 01
 
 [	LD E , 45] Z80:8cyc, R800:2cyc
 000155: 1e 2d
@@ -124,13 +124,13 @@ Programmed by t.hara
 000159: cd 05 00
 
 [	LD A , [ SAVE_DEVICE_ID + 1 ]] Z80:14cyc, R800:6cyc
-00015c: 3a 8d 01
+00015c: 3a 8b 01
 
 [	CALL PUTHEX] Z80:18cyc, R800:5cyc
-00015f: cd 71 01
+00015f: cd 6f 01
 
 [	LD DE , COMPLETED_MESSAGE] Z80:11cyc, R800:3cyc
-000162: 11 d5 01
+000162: 11 d3 01
 
 [	LD C , _STROUT] Z80:8cyc, R800:2cyc
 000165: 0e 09
@@ -138,23 +138,26 @@ Programmed by t.hara
 [	CALL BDOS] Z80:18cyc, R800:5cyc
 000167: cd 05 00
 
-[	LD B , 0] Z80:8cyc, R800:2cyc
-00016a: 06 00
-
-[	LD C , _TERM] Z80:8cyc, R800:2cyc
-00016c: 0e 62
+[	LD C , _TERM0] Z80:8cyc, R800:2cyc
+00016a: 0e 00
 
 [	JP BDOS] Z80:11cyc, R800:5cyc
-00016e: c3 05 00
+00016c: c3 05 00
 
 [	SCOPE PUTHEX]
 	Scope path: PUTHEX:
 
 [PUTHEX ::]
-	global label address: 0x000171
+	global label address: 0x00016f
 
 [	PUSH AF] Z80:12cyc, R800:6cyc
-000171: f5
+00016f: f5
+
+[	RRCA] Z80:5cyc, R800:1cyc
+000170: 0f
+
+[	RRCA] Z80:5cyc, R800:1cyc
+000171: 0f
 
 [	RRCA] Z80:5cyc, R800:1cyc
 000172: 0f
@@ -162,20 +165,14 @@ Programmed by t.hara
 [	RRCA] Z80:5cyc, R800:1cyc
 000173: 0f
 
-[	RRCA] Z80:5cyc, R800:1cyc
-000174: 0f
-
-[	RRCA] Z80:5cyc, R800:1cyc
-000175: 0f
-
 [	CALL PUTHEX_C] Z80:18cyc, R800:5cyc
-000176: cd 7d 01
+000174: cd 7b 01
 
 [	POP AF] Z80:11cyc, R800:5cyc
-000179: f1
+000177: f1
 
 [	JP PUTHEX_C] Z80:11cyc, R800:5cyc
-00017a: c3 7d 01
+000178: c3 7b 01
 
 [	ENDSCOPE]
 	Scope path: 
@@ -184,71 +181,71 @@ Programmed by t.hara
 	Scope path: PUTHEX_C:
 
 [PUTHEX_C ::]
-	global label address: 0x00017d
+	global label address: 0x00017b
 
 [	AND A , 0X0F] Z80:8cyc, R800:2cyc
-00017d: e6 0f
+00017b: e6 0f
 
 [	LD HL , HEX_CHARACTERS] Z80:11cyc, R800:3cyc
-00017f: 21 c5 01
+00017d: 21 c3 01
 
 [	LD D , 0] Z80:8cyc, R800:2cyc
-000182: 16 00
+000180: 16 00
 
 [	LD E , A] Z80:5cyc, R800:2cyc
-000184: 5f
+000182: 5f
 
 [	ADD HL , DE] Z80:12cyc, R800:1cyc
-000185: 19
+000183: 19
 
 [	LD E , [ HL ]] Z80:8cyc, R800:4cyc
-000186: 5e
+000184: 5e
 
 [	LD C , _DIRIO] Z80:8cyc, R800:2cyc
-000187: 0e 06
+000185: 0e 06
 
 [	JP BDOS] Z80:11cyc, R800:5cyc
-000189: c3 05 00
+000187: c3 05 00
 
 [	ENDSCOPE]
 	Scope path: 
 
 [SAVE_DEVICE_ID :]
-	label address: 0x00018c
+	label address: 0x00018a
 
 [	DW 0]
-00018c: 00 00
+00018a: 00 00
 
 [TITLE_MESSAGE :]
-	label address: 0x00018e
+	label address: 0x00018c
 
 [	DS "SST Checker v0.00\r\n"]
-00018e: 53 53 54 20 43 68 65 63
-000196: 6b 65 72 20 76 30 2e 30
-00019e: 30 0d 0a
+00018c: 53 53 54 20 43 68 65 63
+000194: 6b 65 72 20 76 30 2e 30
+00019c: 30 0d 0a
 
 [	DS "Copyright (C)2022 HRA!\r\n"]
-0001a1: 43 6f 70 79 72 69 67 68
-0001a9: 74 20 28 43 29 32 30 32
-0001b1: 32 20 48 52 41 21 0d 0a
+00019f: 43 6f 70 79 72 69 67 68
+0001a7: 74 20 28 43 29 32 30 32
+0001af: 32 20 48 52 41 21 0d 0a
 
 [	DS "Device ID: $"]
-0001b9: 44 65 76 69 63 65 20 49
-0001c1: 44 3a 20 24
+0001b7: 44 65 76 69 63 65 20 49
+0001bf: 44 3a 20 24
 
 [HEX_CHARACTERS :]
-	label address: 0x0001c5
+	label address: 0x0001c3
 
 [	DS "0123456789ABCDEF"]
-0001c5: 30 31 32 33 34 35 36 37
-0001cd: 38 39 41 42 43 44 45 46
+0001c3: 30 31 32 33 34 35 36 37
+0001cb: 38 39 41 42 43 44 45 46
 
 [COMPLETED_MESSAGE :]
-	label address: 0x0001d5
+	label address: 0x0001d3
 
 [	DS "\r\nCompleted.\r\n$"]
-0001d5: 0d 0a 43 6f 6d 70 6c 65
-0001dd: 74 65 64 2e 0d 0a 24
+0001d3: 0d 0a 43 6f 6d 70 6c 65
+0001db: 74 65 64 2e 0d 0a 24
 
 << label >>
 BANK0_SEL 20480 ( 0x5000 )
@@ -258,18 +255,18 @@ BANK3_SEL 45056 ( 0xb000 )
 BDOS 5 ( 0x5 )
 CMD_2AAA 19114 ( 0x4aaa )
 CMD_5555 25941 ( 0x6555 )
-COMPLETED_MESSAGE 469 ( 0x1d5 )
+COMPLETED_MESSAGE 467 ( 0x1d3 )
 ENASLT 36 ( 0x24 )
 ENTRY_POINT 256 ( 0x100 )
-HEX_CHARACTERS 453 ( 0x1c5 )
-PUTHEX 369 ( 0x171 )
-PUTHEX_C 381 ( 0x17d )
+HEX_CHARACTERS 451 ( 0x1c3 )
+PUTHEX 367 ( 0x16f )
+PUTHEX_C 379 ( 0x17b )
 RAMAD0 62273 ( 0xf341 )
 RAMAD1 62274 ( 0xf342 )
 RAMAD2 62275 ( 0xf343 )
 RAMAD3 62276 ( 0xf344 )
-SAVE_DEVICE_ID 396 ( 0x18c )
-TITLE_MESSAGE 398 ( 0x18e )
+SAVE_DEVICE_ID 394 ( 0x18a )
+TITLE_MESSAGE 396 ( 0x18c )
 _DIRIO 6 ( 0x6 )
 _STROUT 9 ( 0x9 )
-_TERM 98 ( 0x62 )
+_TERM0 0 ( 0x0 )
