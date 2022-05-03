@@ -71,7 +71,7 @@ puts::
 puthex16::
 			push	hl
 			ld		a, h
-			call	puthex_8
+			call	puthex8
 			pop		hl
 			ld		a, l
 			endscope

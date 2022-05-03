@@ -142,8 +142,8 @@ is_rom::
 ;    Change Bank3 to Bank#6.
 ;    Return in DI state.
 ; -----------------------------------------------------------------------------
-			scope	is_slot_scc
-is_slot_scc::
+			scope	setup_slot_scc
+setup_slot_scc::
 			; Change to target slot on page1
 			push	af
 			ld		h, 0x40
@@ -161,23 +161,57 @@ is_slot_scc::
 			ld		a, 6
 			ld		[SCC_BANK3_SEL], a
 			; Setup
-			ld		scc_flash_jump_table
+			ld		hl, scc_flash_jump_table
 			call	setup_flash_command
 			ret
 
 scc_flash_jump_table:
+			jp		scc_flash_get_id
 			jp		scc_flash_write_byte
-			jp		scc_flash_read_byte
 			jp		scc_flash_chip_erase
+			endscope
+
+; -----------------------------------------------------------------------------
+; scc_flash_get_id
+; input:
+;    none
+; output:
+;    e .... Manufacture ID
+;    d .... Device ID
+; break:
+;    all
+; comment:
+;
+; -----------------------------------------------------------------------------
+			scope		scc_flash_get_id
+scc_flash_get_id::
+			ld			a, 0xAA
+			ld			[CMD_5555], a
+			ld			a, 0x55
+			ld			[CMD_2AAA], a
+			ld			a, 0x90
+			ld			[CMD_5555], a
+			ld			a, [0x8000]
+			ld			e, a
+
+			ld			a, 0xAA
+			ld			[CMD_5555], a
+			ld			a, 0x55
+			ld			[CMD_2AAA], a
+			ld			a, 0x90
+			ld			[CMD_5555], a
+			ld			a, [0x8001]
+			ld			d, a
+			ret
 			endscope
 
 ; -----------------------------------------------------------------------------
 ; scc_flash_write_byte
 ; input:
-;    hl .... target address
+;    hl .... target address (BANK0: 4000h-5FFFh)
 ;    a ..... write value
 ; output:
-;    none
+;    Zf .... 0: Failed, 1: Success
 ; break:
 ;    all
 ; comment:
@@ -185,21 +219,24 @@ scc_flash_jump_table:
 ; -----------------------------------------------------------------------------
 			scope		scc_flash_write_byte
 scc_flash_write_byte::
-			endscope
-
-; -----------------------------------------------------------------------------
-; scc_flash_read_byte
-; input:
-;    hl .... target address
-; output:
-;    a ..... read value
-; break:
-;    all
-; comment:
-;
-; -----------------------------------------------------------------------------
-			scope		scc_flash_read_byte
-scc_flash_read_byte::
+			push		af
+			ld			a, 0xAA
+			ld			[CMD_5555], a
+			ld			a, 0x55
+			ld			[CMD_2AAA], a
+			ld			a, 0xA0
+			ld			[CMD_5555], a
+			pop			af
+			ld			[hl], a
+			call		scc_restore_bank0
+			ld			b, 0
+l1:
+			ld			c, [hl]
+			cp			a, c
+			nop
+			ret			z
+			djnz		l1
+			ret
 			endscope
 
 ; -----------------------------------------------------------------------------
@@ -215,4 +252,56 @@ scc_flash_read_byte::
 ; -----------------------------------------------------------------------------
 			scope		scc_flash_chip_erase
 scc_flash_chip_erase::
+			ld			a, 0xAA
+			ld			[CMD_5555], a
+			ld			a, 0x55
+			ld			[CMD_2AAA], a
+			ld			a, 0x80
+			ld			[CMD_5555], a
+			ld			a, 0xAA
+			ld			[CMD_5555], a
+			ld			a, 0x55
+			ld			[CMD_2AAA], a
+			ld			a, 0x10
+			ld			[CMD_5555], a
+			ret
 			endscope
+
+; -----------------------------------------------------------------------------
+; scc_set_bank0
+; input:
+;    a ..... BANK ID
+; output:
+;    none
+; break:
+;    all
+; comment:
+;
+; -----------------------------------------------------------------------------
+			scope		scc_set_bank0
+scc_set_bank0::
+			ld			[SCC_BANK0_SEL], a
+			ld			[bank0_back], a
+			ret
+			endscope
+
+; -----------------------------------------------------------------------------
+; scc_restore_bank0
+; input:
+;    none
+; output:
+;    none
+; break:
+;    all
+; comment:
+;
+; -----------------------------------------------------------------------------
+			scope		scc_restore_bank0
+scc_restore_bank0::
+			ld			a, [bank0_back]
+			ld			[SCC_BANK0_SEL], a
+			ret
+			endscope
+
+bank0_back:
+			db			0

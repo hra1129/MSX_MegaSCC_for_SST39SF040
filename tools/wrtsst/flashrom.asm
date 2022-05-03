@@ -80,8 +80,8 @@ s_unknown::
 ; break:
 ;    all
 ; -----------------------------------------------------------------------------
-			scope	get_manufacture_name
-get_manufacture_name::
+			scope	get_device_name
+get_device_name::
 			cp		a, DID_AM29F040B
 			ld		de, s_am29f040b
 			ret		z
@@ -118,7 +118,7 @@ s_sst39sf040:
 			scope	setup_flash_command
 setup_flash_command::
 			ld		de, jump_table
-			ld		bc, jump_table_next - jump_table
+			ld		bc, jump_table_end - jump_table
 			ldir
 			ret
 			endscope
@@ -127,9 +127,9 @@ setup_flash_command::
 ; jump table
 ; -----------------------------------------------------------------------------
 jump_table:
-flash_write_byte::
+flash_get_id:
 			jp		0
-flash_read_byte::
+flash_write_byte::
 			jp		0
 flash_chip_erase::
 			jp		0

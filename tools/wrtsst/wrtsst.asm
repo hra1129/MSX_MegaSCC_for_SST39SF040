@@ -58,74 +58,211 @@ _RDBLK		:= 0x27
 ; -----------------------------------------------------------------------------
 			org		0x100
 entry_point::
-			; Change to SLOT#1 on Page1 and Page2
-			ld		a, 0x01
-			ld		h, 0x40
-			call	ENASLT				; di
-			ld		a, 0x01
-			ld		h, 0x80
-			call	ENASLT				; di
-			; Change BANK0 to BANK#0
-			ld		a, 0
-			ld		[BANK0_SEL], a
-			; Change BANK1 to BANK#0
-			ld		a, 0
-			ld		[BANK1_SEL], a
-			; Change BANK2 to BANK#1
-			ld		a, 1
-			ld		[BANK2_SEL], a
-			; Change BANK3 to BANK#6
-			ld		a, 6
-			ld		[BANK3_SEL], a
-			; EXECUTE: Software ID Entry and Read
-			ld		hl, 0x8000
-			ld		a, 0xAA
-			ld		[CMD_5555], a
-			ld		a, 0x55
-			ld		[CMD_2AAA], a
-			ld		a, 0x90
-			ld		[CMD_5555], a
-			ld		c, [hl]				; 0xBF
-			inc		hl
-			ld		b, [hl]				; Device ID
-			ld		[save_device_id], bc
-			; Restore SLOT
-			ld		a, [RAMAD1]
-			ld		h, 0x40
-			call	ENASLT				; di
-			ld		a, [RAMAD2]
-			ld		h, 0x80
-			call	ENASLT				; di
-			ei
+			call	command_line_options
+
 			; Display informations
 			ld		de, title_message
 			ld		c, _STROUT
 			call	bdos
 
-			ld		a, [save_device_id + 0]
-			call	puthex
-			ld		e, '-'
-			ld		c, _DIRIO
-			call	bdos
-			ld		a, [save_device_id + 1]
-			call	puthex
-
 			ld		de, completed_message
 			ld		c, _STROUT
 			call	bdos
 
-			ld		b, 0				; Error code: 0
-			ld		c, _TERM
+			ld		c, _TERM0
 			jp		bdos
 
-save_device_id:
-			dw		0
 title_message:
 			ds		"WRTSST [SST FlashROM Writer] v0.00\r\n"
 			ds		"Copyright (C)2022 HRA!\r\n$"
 completed_message:
 			ds		"\r\nCompleted.\r\n$"
 
+; -----------------------------------------------------------------------------
+; command_line_options
+; input:
+;    none
+; output:
+;    none
+; break:
+;    all
+; comment:
+;    After parsing command line options, reflect them in internal variables.
+; -----------------------------------------------------------------------------
+			scope	command_line_options
+command_line_options::
+			ld		hl, 0x0080
+			ld		a, [hl]				; Length of command line parameter.
+			or		a, a
+			jp		z, usage
+			ld		b, a
+			inc		hl
+l1:
+			ld		a, [hl]
+			inc		hl
+			cp		a, '/'
+			jr		z, option
+			cp		a, ' '
+			jr		nz, file_name
+l2:
+			djnz	l1
+			; If no file name is specified, it ends up displaying the usage.
+			ld		a, [fcb_fname]
+			cp		a, ' '
+			jp		z, usage
+			ret
+
+option:
+			ld		a, [hl]
+			inc		hl
+			dec		b
+			jp		z, usage
+			cp		a, 'S'
+			jp		z, option_s
+			jp		usage
+option_s:
+			ld		a, [hl]
+			inc		hl
+			dec		b
+			jp		z, usage
+			; The slot number is 0 to 3. If it is out of range, the system displays the usage and exits.
+			sub		a, '0'
+			cp		a, 4
+			jp		nc, usage
+			ld		[target_slot], a
+			; Check expansion slot designations.
+			ld		a, [hl]
+			cp		a, '-'
+			jp		nz, l1
+			inc		hl
+			dec		b
+			jp		z, usage
+			ld		a, [hl]
+			inc		hl
+			dec		b
+			jp		z, usage
+			; The expantion slot number is 0 to 3. If it is out of range, the system displays the usage and exits.
+			sub		a, '0'
+			cp		a, 4
+			jp		nc, usage
+			rlca
+			rlca
+			ld		c, a
+			ld		a, [target_slot]
+			or		a, c
+			or		a, 0x80
+			jp		l1
+
+file_name:
+			; If a file name has already been specified, the system displays usage and exits.
+			ld		c, a
+			ld		a, [fcb_fname]
+			cp		a, ' '
+			jp		nz, usage
+			ld		a, c
+
+			ld		c, 8
+			ld		de, fcb_fname
+fl1:
+			ld		[de], a
+			inc		de
+			dec		b
+			jp		z, l1
+			ld		a, [hl]
+			inc		hl
+			cp		a, '.'
+			jp		z, file_ext
+			cp		a, ' '
+			jp		z, l1
+			dec		c
+			jr		nz, fl1
+file_ext:
+			dec		b
+			jp		z, l1
+			ld		c, 3
+			ld		de, fcb_fext
+fl2:
+			ld		a, [hl]
+			cp		a, ' '
+			jp		z, l1
+			ld		[de], a
+			inc		de
+			inc		hl
+			dec		b
+			jp		z, l1
+			dec		c
+			jp		z, l1
+			jr		fl2
+			endscope
+
+; -----------------------------------------------------------------------------
+; display usage
+; input:
+;    none
+; output:
+;    none
+; break:
+;    all
+; comment:
+;    Does not return processing and returns to DOS.
+; -----------------------------------------------------------------------------
+			scope		usage
+usage::
+			ld			de, usage_message
+			call		puts
+			ld			c, _TERM0
+			jp			BDOS
+
+usage_message:
+			ds			"Usage> WRTSST [/Sx][/Sx-y] file_name.rom\r\n"
+			ds			"  /Sx ........ Rewrite in SLOT#x.\r\n"
+			ds			"  /Sx-y ...... Rewrite in SLOT#x-y.\r\n"
+			ds			"  /S omitted . Auto detect.\r\n"
+			db			0
+			endscope
+
+
+; -----------------------------------------------------------------------------
+;  WORK AREA
+; -----------------------------------------------------------------------------
+target_slot::
+			db		0xFF				; 0xFF: auto, 0bE000DDCC: slot number
+fcb::
+fcb_dr::
+			db		0					; 0: Default Drive, 1: A, 2: B, ... 8: H
+fcb_fname::
+			ds		"        "
+fcb_fext::
+			ds		"   "
+fcb_ex::
+			db		0
+fcb_s1::
+			db		0
+fcb_s2::
+			db		0
+fcb_rc::
+			db		0
+fcb_filsiz::
+			dw		0, 0
+fcb_date::
+			dw		0
+fcb_time::
+			dw		0
+fcb_devid::
+			db		0
+fcb_dirloc::
+			db		0
+fcb_strcls::
+			dw		0
+fcb_clrcls::
+			dw		0
+fcb_clsoff::
+			dw		0
+fcb_cr::
+			db		0
+fcb_rn::
+			dw		0, 0
+
 			include	"stdio.asm"
-			include	"scc.asm"
 			include	"flashrom.asm"
+			include	"scc.asm"
