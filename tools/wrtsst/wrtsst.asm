@@ -52,6 +52,7 @@ _FOPEN		:= 0x0F
 _FCLOSE		:= 0x10
 _SETDTA		:= 0x1A
 _RDBLK		:= 0x27
+EXPTBL		:= 0xFCC1
 
 ; -----------------------------------------------------------------------------
 ;	Entry Point
@@ -63,15 +64,31 @@ entry_point::
 			call	puts
 
 			call	command_line_options
+			ld		a, [fcb_fname]
+			cp		a, ' '
+			jp		z, usage
+
+			call	display_target_fname
+			call	puts_crlf
+
+			call	file_open
+
+			call	check_target_slot
+			jp		nz, not_detected
 
 			call	display_target_slot
 			call	puts_crlf
 
 			ld		de, completed_message
+l1:
 			call	puts
 
 			ld		c, _TERM0
 			jp		bdos
+
+not_detected:
+			ld		de, not_detected_message
+			jr		l1
 
 title_message:
 			ds		"WRTSST [SST FlashROM Writer] v0.00\r\n"
@@ -79,6 +96,9 @@ title_message:
 			db		0
 completed_message:
 			ds		"\r\nCompleted.\r\n"
+			db		0
+not_detected_message:
+			ds		"Could not detect flash cartridge.\r\n"
 			db		0
 
 ; -----------------------------------------------------------------------------
@@ -93,6 +113,12 @@ completed_message:
 ;    After parsing command line options, reflect them in internal variables.
 ; -----------------------------------------------------------------------------
 			scope	command_line_options
+get_one:
+			ld		a, [hl]
+			inc		hl
+			dec		b
+			ret
+
 command_line_options::
 			ld		hl, 0x0080
 			ld		a, [hl]				; Length of command line parameter.
@@ -101,13 +127,13 @@ command_line_options::
 			ld		b, a
 			inc		hl
 l1:
-			ld		a, [hl]
-			inc		hl
+			call	get_one
 			cp		a, '/'
 			jr		z, option
 			cp		a, ' '
 			jr		nz, file_name
 l2:
+			inc		b
 			djnz	l1
 			; If no file name is specified, it ends up displaying the usage.
 			ld		a, [fcb_fname]
@@ -116,17 +142,13 @@ l2:
 			ret
 
 option:
-			ld		a, [hl]
-			inc		hl
-			dec		b
+			call	get_one
 			jp		z, usage
 			cp		a, 'S'
 			jp		z, option_s
 			jp		usage
 option_s:
-			ld		a, [hl]
-			inc		hl
-			dec		b
+			call	get_one
 			jp		z, usage
 			; The slot number is 0 to 3. If it is out of range, the system displays the usage and exits.
 			sub		a, '0'
@@ -140,9 +162,7 @@ option_s:
 			inc		hl
 			dec		b
 			jp		z, usage
-			ld		a, [hl]
-			inc		hl
-			dec		b
+			call	get_one
 			jp		z, usage
 			; The expantion slot number is 0 to 3. If it is out of range, the system displays the usage and exits.
 			sub		a, '0'
@@ -159,44 +179,110 @@ option_s:
 
 file_name:
 			; If a file name has already been specified, the system displays usage and exits.
-			ld		c, a
 			ld		a, [fcb_fname]
 			cp		a, ' '
 			jp		nz, usage
-			ld		a, c
 
 			ld		c, 8
 			ld		de, fcb_fname
+			dec		hl
+			inc		b
 fl1:
-			ld		[de], a
-			inc		de
-			dec		b
-			ret		z
-			ld		a, [hl]
-			inc		hl
+			call	get_one
 			cp		a, '.'
 			jp		z, file_ext
 			cp		a, ' '
 			jp		z, l1
+			ld		[de], a
+			inc		de
+
+			inc		b
+			dec		b
+			ret		z
+
 			dec		c
 			jr		nz, fl1
 file_ext:
+			inc		b
 			dec		b
 			ret		z
+
 			ld		c, 3
 			ld		de, fcb_fext
 fl2:
-			ld		a, [hl]
+			call	get_one
 			cp		a, ' '
 			jp		z, l1
 			ld		[de], a
 			inc		de
-			inc		hl
+
+			inc		b
 			dec		b
 			ret		z
+
 			dec		c
 			jp		z, l1
 			jr		fl2
+			endscope
+
+; -----------------------------------------------------------------------------
+; file open
+; input:
+;    none
+; output:
+;    none
+; break:
+;    all
+; comment:
+;    none
+; -----------------------------------------------------------------------------
+			scope	file_open
+file_open::
+			ld		de, fcb
+			ld		c, _FOPEN
+			call	BDOS
+			or		a, a						; A=0: Success, 255: Error
+			ld		de, cannot_open_message
+			jr		nz, put_error
+
+			; Check file size
+			ld		hl, [fcb_filsiz]
+			ld		a, h
+			and		a, 0x1F
+			or		a, l
+			ld		de, is_not_8kb_message
+			jr		nz, put_error
+
+			ld		a, h
+			ld		hl, [fcb_filsiz + 2]
+			or		a, h
+			or		a, l
+			ld		de, is_zero_message
+			jr		z, put_error
+
+			; calc KB
+			ld		hl, [fcb_filsiz + 1]
+			srl		h
+			rr		l
+			srl		h
+			rr		l
+			ld		[target_size], hl
+			ret
+
+put_error:
+			call	puts
+			or		a, a
+			ret
+
+cannot_open_message:
+			ds		"Cannot open file.\r\n"
+			db		0
+is_not_8kb_message:
+			ds		"The file size is not a multiple of 8KB.\r\n"
+			db		0
+is_zero_message:
+			ds		"File is empty.\r\n"
+			db		0
 			endscope
 
 ; -----------------------------------------------------------------------------
@@ -266,10 +352,146 @@ bar_message:
 			endscope
 
 ; -----------------------------------------------------------------------------
+; display target file name
+; input:
+;    none
+; output:
+;    none
+; break:
+;    all
+; comment:
+;    none
+; -----------------------------------------------------------------------------
+			scope		display_target_fname
+display_target_fname::
+			ld			de, fname_message
+			call		puts
+
+			ld			hl, fcb_fname
+			ld			b, 8
+l1:
+			ld			a, [hl]
+			inc			hl
+			cp			a, ' '
+			jr			z, s1
+			push		hl
+			push		bc
+			ld			e, a
+			ld			c, _DIRIO
+			call		BDOS
+			pop			bc
+			pop			hl
+			djnz		l1
+s1:
+			ld			e, '.'
+			ld			c, _DIRIO
+			call		BDOS
+
+			ld			hl, fcb_fext
+			ld			b, 3
+l2:
+			ld			a, [hl]
+			inc			hl
+			cp			a, ' '
+			ret			z
+			push		hl
+			push		bc
+			ld			e, a
+			ld			c, _DIRIO
+			call		BDOS
+			pop			bc
+			pop			hl
+			djnz		l2
+			ret
+
+fname_message:
+			ds			"File name:"
+			db			0
+			endscope
+
+; -----------------------------------------------------------------------------
+; check target slot
+;    none
+; output:
+;    Zf .... 0: not detected, 1: detected
+; break:
+;    all
+; comment:
+;    Search for target slots
+; -----------------------------------------------------------------------------
+			scope		check_target_slot
+check_target_slot::
+			ld			a, [target_slot]
+			inc			a
+			ret			nz					; If a slot number is specified, return without doing anything.
+
+			ld			hl, EXPTBL
+l1:
+			ld			a, [hl]
+			or			a, a
+			jp			m, expanded_slot
+basic_slot:
+			ld			a, l
+			sub			a, EXPTBL & 255
+			ld			[target_slot], a
+			push		hl
+			call		detect_target
+			pop			hl
+			ret			z
+			jr			next_slot
+
+expanded_slot:
+			or			a, 0x80
+			ld			[target_slot], a
+			push		hl
+			call		detect_target
+			pop			hl
+			ret			z
+			ld			a, [target_slot]
+			add			a, 0x04
+			cp			a, 0x90
+			jr			c, expanded_slot
+
+next_slot:
+			ld			a, l
+			inc			a
+			ld			l, a
+			cp			a, (EXPTBL & 255) + 4
+			jr			c, l1
+
+			xor			a, a
+			inc			a
+			ret
+			endscope
+
+; -----------------------------------------------------------------------------
+; detect_target
+; input:
+;    a ..... target slot number
+; output:
+;    Zf .... 0: not detect, 1: detect
+; break:
+;    all
+; comment:
+;    none
+; -----------------------------------------------------------------------------
+			scope		detect_target
+detect_target::
+			call		is_slot_scc
+			jp			z, detect_scc
+			ret									; ÅöébíË
+detect_scc::
+			ret									; ÅöébíË
+			endscope
+
+; -----------------------------------------------------------------------------
 ;  WORK AREA
 ; -----------------------------------------------------------------------------
 target_slot::
 			db		0xFF				; 0xFF: auto, 0bE000DDCC: slot number
+target_size::
+			dw		0					; KB
+
 fcb::
 fcb_dr::
 			db		0					; 0: Default Drive, 1: A, 2: B, ... 8: H
