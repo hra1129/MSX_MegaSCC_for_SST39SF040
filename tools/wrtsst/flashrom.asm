@@ -63,11 +63,14 @@ get_manufacture_name::
 			ld		de, s_unknown
 			ret
 s_amd:
-			ds		"AMD\0"
+			ds		"AMD"
+			db		0
 s_sst:
-			ds		"SST\0"
+			ds		"SST"
+			db		0
 s_unknown::
-			ds		"Unknown\0"
+			ds		"Unknown"
+			db		0
 			endscope
 
 ; -----------------------------------------------------------------------------
@@ -97,13 +100,17 @@ get_device_name::
 			ld		de, s_unknown
 			ret
 s_am29f040b:
-			ds		"AM29F040B\0"
+			ds		"AM29F040B"
+			db		0
 s_sst39sf010a:
-			ds		"SST39SF010A\0"
+			ds		"SST39SF010A"
+			db		0
 s_sst39sf020a:
-			ds		"SST39SF020A\0"
+			ds		"SST39SF020A"
+			db		0
 s_sst39sf040:
-			ds		"SST39SF040\0"
+			ds		"SST39SF040"
+			db		0
 			endscope
 
 ; -----------------------------------------------------------------------------
@@ -127,8 +134,6 @@ setup_flash_command::
 ; jump table
 ; -----------------------------------------------------------------------------
 jump_table:
-flash_get_id:
-			jp		0
 flash_write_byte::
 			jp		0
 flash_chip_erase::

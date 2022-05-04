@@ -83,6 +83,7 @@ entry_point::
 l1:
 			call	puts
 
+			call	restore_dos_slot
 			ld		c, _TERM0
 			jp		bdos
 
@@ -296,19 +297,20 @@ is_zero_message:
 ; comment:
 ;    Does not return processing and returns to DOS.
 ; -----------------------------------------------------------------------------
-			scope		usage
+			scope	usage
 usage::
-			ld			de, usage_message
-			call		puts
-			ld			c, _TERM0
-			jp			BDOS
+			call	restore_dos_slot
+			ld		de, usage_message
+			call	puts
+			ld		c, _TERM0
+			jp		BDOS
 
 usage_message:
-			ds			"Usage> WRTSST [/Sx][/Sx-y] file_name.rom\r\n"
-			ds			"  /Sx ........ Rewrite in SLOT#x.\r\n"
-			ds			"  /Sx-y ...... Rewrite in SLOT#x-y.\r\n"
-			ds			"  /S omitted . Auto detect.\r\n"
-			db			0
+			ds		"Usage> WRTSST [/Sx][/Sx-y] file_name.rom\r\n"
+			ds		"  /Sx ........ Rewrite in SLOT#x.\r\n"
+			ds		"  /Sx-y ...... Rewrite in SLOT#x-y.\r\n"
+			ds		"  /S omitted . Auto detect.\r\n"
+			db		0
 			endscope
 
 ; -----------------------------------------------------------------------------
@@ -465,9 +467,30 @@ next_slot:
 			endscope
 
 ; -----------------------------------------------------------------------------
+; restore DOS slot
+; input:
+;    none
+; output:
+;    none
+; comment:
+;    none
+; -----------------------------------------------------------------------------
+			scope		restore_dos_slot
+restore_dos_slot::
+			ld			a, [RAMAD1]
+			ld			h, 0x40
+			call		ENASLT
+			ld			a, [RAMAD2]
+			ld			h, 0x80
+			call		ENASLT
+			ei
+			ret
+			endscope
+
+; -----------------------------------------------------------------------------
 ; detect_target
 ; input:
-;    a ..... target slot number
+;    target_slot ..... target slot number
 ; output:
 ;    Zf .... 0: not detect, 1: detect
 ; break:
@@ -477,11 +500,54 @@ next_slot:
 ; -----------------------------------------------------------------------------
 			scope		detect_target
 detect_target::
+			ld			a, [target_slot]
 			call		is_slot_scc
 			jp			z, detect_scc
 			ret									; ÅöébíË
-detect_scc::
-			ret									; ÅöébíË
+
+detect_scc:
+			; It is confirmed that the specified slot is SCC.
+			ld			a, [target_slot]
+			call		setup_slot_scc
+			ld			[manufacture_id], de
+
+			ld			a, [manufacture_id]
+			call		get_manufacture_name
+			ret			nz
+			ld			a, [device_id]
+			call		get_device_name
+			ret			nz
+
+			ld			de, manufacture_id_message
+			call		puts
+
+			ld			a, [manufacture_id]
+			call		get_manufacture_name
+			call		puts
+			call		puts_crlf
+
+			ld			de, device_id_message
+			call		puts
+
+			ld			a, [device_id]
+			call		get_device_name
+			call		puts
+			call		puts_crlf
+
+			ld			de, megascc_message
+			call		puts
+			xor			a, a
+			ret
+
+manufacture_id_message:
+			ds			"MANUFACTURE ID:"
+			db			0
+device_id_message:
+			ds			"DEVICE ID     :"
+			db			0
+megascc_message:
+			ds			"CARTRIDGE TYPE:MegaSCC\r\n"
+			db			0
 			endscope
 
 ; -----------------------------------------------------------------------------
@@ -491,6 +557,10 @@ target_slot::
 			db		0xFF				; 0xFF: auto, 0bE000DDCC: slot number
 target_size::
 			dw		0					; KB
+manufacture_id::
+			db		0
+device_id::
+			db		0
 
 fcb::
 fcb_dr::

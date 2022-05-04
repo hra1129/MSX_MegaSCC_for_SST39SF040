@@ -132,7 +132,8 @@ is_rom::
 ; input:
 ;    a ..... Target slot
 ; output:
-;    none
+;    e ..... Manufacture ID
+;    d ..... Device ID
 ; break:
 ;    all
 ; comment:
@@ -163,46 +164,22 @@ setup_slot_scc::
 			; Setup
 			ld		hl, scc_flash_jump_table
 			call	setup_flash_command
+			; Get Manufacture ID
+			ld		hl, 0x4000
+			ld		a, 0xAA
+			ld		[CMD_5555], a
+			ld		a, 0x55
+			ld		[CMD_2AAA], a
+			ld		a, 0x90
+			ld		[CMD_5555], a
+			ld		e, [hl]
+			inc		hl
+			ld		d, [hl]
 			ret
 
 scc_flash_jump_table:
-			jp		scc_flash_get_id
 			jp		scc_flash_write_byte
 			jp		scc_flash_chip_erase
-			endscope
-
-; -----------------------------------------------------------------------------
-; scc_flash_get_id
-; input:
-;    none
-; output:
-;    e .... Manufacture ID
-;    d .... Device ID
-; break:
-;    all
-; comment:
-;
-; -----------------------------------------------------------------------------
-			scope		scc_flash_get_id
-scc_flash_get_id::
-			ld			a, 0xAA
-			ld			[CMD_5555], a
-			ld			a, 0x55
-			ld			[CMD_2AAA], a
-			ld			a, 0x90
-			ld			[CMD_5555], a
-			ld			a, [0x8000]
-			ld			e, a
-
-			ld			a, 0xAA
-			ld			[CMD_5555], a
-			ld			a, 0x55
-			ld			[CMD_2AAA], a
-			ld			a, 0x90
-			ld			[CMD_5555], a
-			ld			a, [0x8001]
-			ld			d, a
-			ret
 			endscope
 
 ; -----------------------------------------------------------------------------
