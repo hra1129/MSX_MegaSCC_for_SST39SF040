@@ -58,25 +58,28 @@ _RDBLK		:= 0x27
 ; -----------------------------------------------------------------------------
 			org		0x100
 entry_point::
-			call	command_line_options
-
 			; Display informations
 			ld		de, title_message
-			ld		c, _STROUT
-			call	bdos
+			call	puts
+
+			call	command_line_options
+
+			call	display_target_slot
+			call	puts_crlf
 
 			ld		de, completed_message
-			ld		c, _STROUT
-			call	bdos
+			call	puts
 
 			ld		c, _TERM0
 			jp		bdos
 
 title_message:
 			ds		"WRTSST [SST FlashROM Writer] v0.00\r\n"
-			ds		"Copyright (C)2022 HRA!\r\n$"
+			ds		"Copyright (C)2022 HRA!\r\n"
+			db		0
 completed_message:
-			ds		"\r\nCompleted.\r\n$"
+			ds		"\r\nCompleted.\r\n"
+			db		0
 
 ; -----------------------------------------------------------------------------
 ; command_line_options
@@ -221,6 +224,38 @@ usage_message:
 			db			0
 			endscope
 
+; -----------------------------------------------------------------------------
+; display target slot
+; input:
+;    none
+; output:
+;    none
+; break:
+;    all
+; comment:
+;    none
+; -----------------------------------------------------------------------------
+			scope		display_target_slot
+display_target_slot::
+			ld			de, slot_message
+			call		puts
+
+			ld			a, [target_slot]
+			and			a, 3
+			call		puthex_c
+
+			ld			a, [target_slot]
+			rlca
+			ret			nc
+			rra
+			rra
+			rra
+			and			a, 3
+			jp			puthex_c
+slot_message:
+			ds			"SLOT#"
+			db			0
+			endscope
 
 ; -----------------------------------------------------------------------------
 ;  WORK AREA

@@ -44,6 +44,23 @@
 ; break:
 ;    all
 ; -----------------------------------------------------------------------------
+			scope	puts_crlf
+crlf:
+			ds		"\r\n"
+			db		0
+puts_crlf::
+			ld		de, crlf
+			endscope
+
+; -----------------------------------------------------------------------------
+; puts
+; input:
+;    de .... Target address of string (0 terminated)
+; output:
+;    de .... Next address of target.
+; break:
+;    all
+; -----------------------------------------------------------------------------
 			scope	puts
 puts::
 			ld		a, [de]
@@ -94,7 +111,7 @@ puthex8::
 			rrca
 			call	puthex_c
 			pop		af
-puthex_c:
+puthex_c::
 			and		a, 0x0F
 			ld		hl, hex_characters
 			ld		d, 0
