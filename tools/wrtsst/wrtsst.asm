@@ -167,7 +167,7 @@ fl1:
 			ld		[de], a
 			inc		de
 			dec		b
-			jp		z, l1
+			ret		z
 			ld		a, [hl]
 			inc		hl
 			cp		a, '.'
@@ -178,7 +178,7 @@ fl1:
 			jr		nz, fl1
 file_ext:
 			dec		b
-			jp		z, l1
+			ret		z
 			ld		c, 3
 			ld		de, fcb_fext
 fl2:
@@ -189,7 +189,7 @@ fl2:
 			inc		de
 			inc		hl
 			dec		b
-			jp		z, l1
+			ret		z
 			dec		c
 			jp		z, l1
 			jr		fl2
