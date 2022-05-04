@@ -247,13 +247,20 @@ display_target_slot::
 			ld			a, [target_slot]
 			rlca
 			ret			nc
-			rra
+
+			ld			de, bar_message
+			call		puts
+
+			ld			a, [target_slot]
 			rra
 			rra
 			and			a, 3
 			jp			puthex_c
 slot_message:
 			ds			"SLOT#"
+			db			0
+bar_message:
+			ds			"-"
 			db			0
 			endscope
 
