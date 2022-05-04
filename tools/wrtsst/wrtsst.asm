@@ -154,6 +154,7 @@ option_s:
 			ld		a, [target_slot]
 			or		a, c
 			or		a, 0x80
+			ld		[target_slot], a
 			jp		l1
 
 file_name:
