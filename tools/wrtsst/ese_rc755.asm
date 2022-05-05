@@ -115,6 +115,10 @@ is_slot_rc755::
 			ld		d, [hl]
 
 			ld		[manufacture_id], de
+
+			ld		a, 0xF0
+			ld		[hl], a
+
 			; Change Flash Mode
 			ld		a, 0x03
 			ld		[RC755_BANK3_SEL], a
@@ -125,16 +129,7 @@ is_slot_rc755::
 
 			ld		a, [manufacture_id + 1]
 			call	get_device_name
-			ret		nz
-
-			; Setup
-			ld		hl, rc755_flash_jump_table
-			call	setup_flash_command
 			ret
-
-rc755_flash_jump_table:
-			jp		rc755_flash_chip_erase
-			jp		rc755_flash_write_byte
 			endscope
 
 ; -----------------------------------------------------------------------------
@@ -150,11 +145,36 @@ rc755_flash_jump_table:
 ; -----------------------------------------------------------------------------
 			scope	setup_slot_rc755
 setup_slot_rc755::
+			; Setup
+			ld		hl, rc755_flash_jump_table
+			call	setup_flash_command
 			ret
 			endscope
 
 			scope	rc755_flash_chip_erase
 rc755_flash_chip_erase::
+			ld		a, 0xAA
+			ld		[RC755_CMD_5555], a
+			ld		a, 0x55
+			ld		[RC755_CMD_2AAA], a
+			ld		a, 0x80
+			ld		[RC755_CMD_5555], a
+			ld		a, 0xAA
+			ld		[RC755_CMD_5555], a
+			ld		a, 0x55
+			ld		[RC755_CMD_2AAA], a
+			ld		a, 0x10
+			ld		[RC755_CMD_5555], a
+
+			ld		hl, JIFFY
+			ld		a, [hl]
+			add		a, 10
+			ei
+wait_l1:
+			cp		a, [hl]
+			jr		nz, wait_l1
+			di
+			ret
 			ret
 			endscope
 
@@ -162,3 +182,7 @@ rc755_flash_chip_erase::
 rc755_flash_write_byte::
 			ret
 			endscope
+
+rc755_flash_jump_table:
+			jp		rc755_flash_chip_erase
+			jp		rc755_flash_write_byte

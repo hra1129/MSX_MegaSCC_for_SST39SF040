@@ -53,6 +53,7 @@ _FCLOSE		:= 0x10
 _SETDTA		:= 0x1A
 _RDBLK		:= 0x27
 EXPTBL		:= 0xFCC1
+JIFFY		:= 0xFC9E
 
 ; -----------------------------------------------------------------------------
 ;	Entry Point
@@ -79,6 +80,10 @@ entry_point::
 			call	display_target_slot
 			call	puts_crlf
 
+			ld		de, erase_message
+			call	puts
+			call	flash_chip_erase
+
 			ld		de, completed_message
 l1:
 			call	puts
@@ -94,6 +99,9 @@ not_detected:
 title_message:
 			ds		"WRTSST [SST FlashROM Writer] v0.00\r\n"
 			ds		"Copyright (C)2022 HRA!\r\n"
+			db		0
+erase_message:
+			ds		"Erase ROM datas.\r\n"
 			db		0
 completed_message:
 			ds		"\r\nCompleted.\r\n"

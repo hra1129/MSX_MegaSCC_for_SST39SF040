@@ -163,11 +163,14 @@ setup_slot_scc::
 			ld		d, [hl]
 			ld		[manufacture_id], de
 
-			ld			a, [manufacture_id]
-			call		get_manufacture_name
-			ret			nz
-			ld			a, [device_id]
-			call		get_device_name
+			ld		a, 0xF0
+			ld		[hl], a
+
+			ld		a, [manufacture_id]
+			call	get_manufacture_name
+			ret		nz
+			ld		a, [device_id]
+			call	get_device_name
 			ret
 
 scc_flash_jump_table:
@@ -234,6 +237,15 @@ scc_flash_chip_erase::
 			ld			[SCC_CMD_2AAA], a
 			ld			a, 0x10
 			ld			[SCC_CMD_5555], a
+
+			ld			hl, JIFFY
+			ld			a, [hl]
+			add			a, 10
+			ei
+wait_l1:
+			cp			a, [hl]
+			jr			nz, wait_l1
+			di
 			ret
 			endscope
 
