@@ -504,9 +504,11 @@ detect_target::
 			call		is_slot_scc
 			jp			z, detect_scc
 
+			ld			a, [target_slot]
 			call		is_slot_rc755
 			jp			z, detect_rc755
 
+			ld			a, [target_slot]
 			call		is_slot_simple64k
 			jp			z, detect_simple64k
 			ret										; Not detected FlashROM.
@@ -554,6 +556,18 @@ common_process:
 
 			ld			de, cartridge_type_message
 			call		puts
+
+			ld			hl, cartridge_type_table
+			ld			a, [rom_type]
+			add			a, a
+			ld			e, a
+			ld			d, 0
+			add			hl, de
+			ld			e, [hl]
+			inc			hl
+			ld			d, [hl]
+			call		puts
+
 			xor			a, a
 			ret
 
@@ -575,6 +589,10 @@ rc755_message:
 simple64k_message:
 			ds			"Simple64K\r\n"
 			db			0
+cartridge_type_table:
+			dw			mega_scc_message
+			dw			rc755_message
+			dw			simple64k_message
 			endscope
 
 ; -----------------------------------------------------------------------------

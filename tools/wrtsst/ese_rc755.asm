@@ -38,15 +38,16 @@
 ; -----------------------------------------------------------------------------
 ; SCC bank registers
 ; -----------------------------------------------------------------------------
-RC755_BANK1_SEL	:= 0x7000
-RC755_BANK2_SEL	:= 0x9000
-RC755_BANK3_SEL	:= 0xB000
+RC755_BANK1_SEL	:= 0x6000
+RC755_BANK2_SEL	:= 0x8000
+RC755_BANK3_SEL	:= 0xA000
 
 ; -----------------------------------------------------------------------------
 ; FlashROM command address
 ; -----------------------------------------------------------------------------
 RC755_CMD_2AAA	:= 0x4AAA
 RC755_CMD_5555	:= 0x5555
+RC755_FLASH		:= 0x80
 
 ; -----------------------------------------------------------------------------
 ; is_slot_rc755
@@ -76,24 +77,24 @@ is_slot_rc755::
 			ld		h, 0x80
 			call	ENASLT				; DI
 			; Is ROM, Page1 and Page2?
-			ld		hl, 0x4000
+			ld		hl, 0x5000
 			call	is_rom
 			jr		z, not_rc755
-			ld		hl, 0x6000
+			ld		hl, 0x7000
 			call	is_rom
 			jr		z, not_rc755
-			ld		hl, 0x8000
+			ld		hl, 0x9000
 			call	is_rom
 			jr		z, not_rc755
-			ld		hl, 0xA000
+			ld		hl, 0xB000
 			call	is_rom
 			jr		z, not_rc755
-			; Change BANK#0 on BANK2
+			; Change BANK#0 on BANK1
 			xor		a, a
-			ld		[RC755_BANK2_SEL], a
-			; Setup
-			ld		hl, rc755_flash_jump_table
-			call	setup_flash_command
+			ld		[RC755_BANK1_SEL], a
+			; Change Flash Mode
+			ld		a, RC755_FLASH
+			ld		[RC755_BANK3_SEL], a
 			; Get Manufacture ID
 			ld		hl, 0x4000
 			ld		a, 0xAA
@@ -104,6 +105,7 @@ is_slot_rc755::
 			ld		[RC755_CMD_5555], a
 			ld		e, [hl]
 			inc		hl
+
 			ld		a, 0xAA
 			ld		[RC755_CMD_5555], a
 			ld		a, 0x55
@@ -111,12 +113,23 @@ is_slot_rc755::
 			ld		a, 0x90
 			ld		[RC755_CMD_5555], a
 			ld		d, [hl]
+
 			ld		[manufacture_id], de
+			; Change Flash Mode
+			ld		a, 0x03
+			ld		[RC755_BANK3_SEL], a
+
 			ld		a, e
 			call	get_manufacture_name
 			ret		nz
+
 			ld		a, [manufacture_id + 1]
 			call	get_device_name
+			ret		nz
+
+			; Setup
+			ld		hl, rc755_flash_jump_table
+			call	setup_flash_command
 			ret
 
 rc755_flash_jump_table:
