@@ -503,21 +503,39 @@ detect_target::
 			ld			a, [target_slot]
 			call		is_slot_scc
 			jp			z, detect_scc
-			ret									; ÅöébíË
+
+			call		is_slot_rc755
+			jp			z, detect_rc755
+
+			call		is_slot_simple64k
+			jp			z, detect_simple64k
+			ret										; Not detected FlashROM.
 
 detect_scc:
 			; It is confirmed that the specified slot is SCC.
 			ld			a, [target_slot]
 			call		setup_slot_scc
-			ld			[manufacture_id], de
+			xor			a, a
+			ld			[rom_type], a
+			jp			common_process
 
-			ld			a, [manufacture_id]
-			call		get_manufacture_name
-			ret			nz
-			ld			a, [device_id]
-			call		get_device_name
-			ret			nz
+detect_rc755:
+			; It is confirmed that the specified slot is ESE-RC755.
+			ld			a, [target_slot]
+			call		setup_slot_rc755
+			ld			a, 1
+			ld			[rom_type], a
+			jp			common_process
 
+detect_simple64k:
+			; It is confirmed that the specified slot is Simple64K.
+			ld			a, [target_slot]
+			call		setup_slot_simple64k
+			ld			a, 2
+			ld			[rom_type], a
+			jp			common_process
+
+common_process:
 			ld			de, manufacture_id_message
 			call		puts
 
@@ -534,7 +552,7 @@ detect_scc:
 			call		puts
 			call		puts_crlf
 
-			ld			de, megascc_message
+			ld			de, cartridge_type_message
 			call		puts
 			xor			a, a
 			ret
@@ -545,8 +563,17 @@ manufacture_id_message:
 device_id_message:
 			ds			"DEVICE ID     :"
 			db			0
-megascc_message:
-			ds			"CARTRIDGE TYPE:MegaSCC\r\n"
+cartridge_type_message:
+			ds			"CARTRIDGE TYPE:"
+			db			0
+mega_scc_message:
+			ds			"MegaSCC\r\n"
+			db			0
+rc755_message:
+			ds			"ESE-RC755\r\n"
+			db			0
+simple64k_message:
+			ds			"Simple64K\r\n"
 			db			0
 			endscope
 
@@ -561,6 +588,8 @@ manufacture_id::
 			db		0
 device_id::
 			db		0
+rom_type::
+			db		0					; 0: MegaSCC, 1: RC755, 2: Simple64K
 
 fcb::
 fcb_dr::
@@ -601,3 +630,5 @@ fcb_rn::
 			include	"stdio.asm"
 			include	"flashrom.asm"
 			include	"scc.asm"
+			include	"ese_rc755.asm"
+			include	"simple64k.asm"

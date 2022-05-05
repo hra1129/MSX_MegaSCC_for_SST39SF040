@@ -46,8 +46,8 @@ SCC_BANK3_SEL	:= 0xB000
 ; -----------------------------------------------------------------------------
 ; FlashROM command address
 ; -----------------------------------------------------------------------------
-CMD_2AAA		:= 0x0AAA | 0x8000
-CMD_5555		:= 0x0555 | 0xA000
+SCC_CMD_2AAA		:= 0x0AAA | 0x8000
+SCC_CMD_5555		:= 0x0555 | 0xA000
 
 ; -----------------------------------------------------------------------------
 ; is_slot_scc
@@ -108,26 +108,6 @@ not_scc:
 			endscope
 
 ; -----------------------------------------------------------------------------
-; is_ram
-; input:
-;    hl ..... Target address
-; output:
-;    Zf ..... 0: not RAM, 1: RAM
-; break:
-;    a
-; -----------------------------------------------------------------------------
-			scope	is_rom
-is_rom::
-			ld		a, [hl]
-			cpl
-			ld		[hl], a
-			cp		a, [hl]
-			cpl
-			ld		[hl], a
-			ret
-			endscope
-
-; -----------------------------------------------------------------------------
 ; setup_slot_scc
 ; input:
 ;    a ..... Target slot
@@ -167,19 +147,32 @@ setup_slot_scc::
 			; Get Manufacture ID
 			ld		hl, 0x4000
 			ld		a, 0xAA
-			ld		[CMD_5555], a
+			ld		[SCC_CMD_5555], a
 			ld		a, 0x55
-			ld		[CMD_2AAA], a
+			ld		[SCC_CMD_2AAA], a
 			ld		a, 0x90
-			ld		[CMD_5555], a
+			ld		[SCC_CMD_5555], a
 			ld		e, [hl]
 			inc		hl
+			ld		a, 0xAA
+			ld		[SCC_CMD_5555], a
+			ld		a, 0x55
+			ld		[SCC_CMD_2AAA], a
+			ld		a, 0x90
+			ld		[SCC_CMD_5555], a
 			ld		d, [hl]
+			ld		[manufacture_id], de
+
+			ld			a, [manufacture_id]
+			call		get_manufacture_name
+			ret			nz
+			ld			a, [device_id]
+			call		get_device_name
 			ret
 
 scc_flash_jump_table:
-			jp		scc_flash_write_byte
 			jp		scc_flash_chip_erase
+			jp		scc_flash_write_byte
 			endscope
 
 ; -----------------------------------------------------------------------------
@@ -198,11 +191,11 @@ scc_flash_jump_table:
 scc_flash_write_byte::
 			push		af
 			ld			a, 0xAA
-			ld			[CMD_5555], a
+			ld			[SCC_CMD_5555], a
 			ld			a, 0x55
-			ld			[CMD_2AAA], a
+			ld			[SCC_CMD_2AAA], a
 			ld			a, 0xA0
-			ld			[CMD_5555], a
+			ld			[SCC_CMD_5555], a
 			pop			af
 			ld			[hl], a
 			call		scc_restore_bank0
@@ -230,17 +223,17 @@ l1:
 			scope		scc_flash_chip_erase
 scc_flash_chip_erase::
 			ld			a, 0xAA
-			ld			[CMD_5555], a
+			ld			[SCC_CMD_5555], a
 			ld			a, 0x55
-			ld			[CMD_2AAA], a
+			ld			[SCC_CMD_2AAA], a
 			ld			a, 0x80
-			ld			[CMD_5555], a
+			ld			[SCC_CMD_5555], a
 			ld			a, 0xAA
-			ld			[CMD_5555], a
+			ld			[SCC_CMD_5555], a
 			ld			a, 0x55
-			ld			[CMD_2AAA], a
+			ld			[SCC_CMD_2AAA], a
 			ld			a, 0x10
-			ld			[CMD_5555], a
+			ld			[SCC_CMD_5555], a
 			ret
 			endscope
 

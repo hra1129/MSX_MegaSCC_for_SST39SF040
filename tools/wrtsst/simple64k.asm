@@ -1,5 +1,5 @@
 ; -----------------------------------------------------------------------------
-;   Flash ROM Driver
+;   Simple64K
 ;
 ;   Copyright (C)2022 Takayuki Hara (HRA!)
 ;
@@ -34,128 +34,45 @@
 ; History
 ; May/3rd/2022  t.hara  First release
 ; -----------------------------------------------------------------------------
-MID_AMD			:= 0x01
-DID_AM29F040B	:= 0xA4
-
-MID_SST			:= 0xBF
-DID_SST39SF010A	:= 0xB5
-DID_SST39SF020A	:= 0xB6
-DID_SST39SF040	:= 0xB7
 
 ; -----------------------------------------------------------------------------
-; get_manufacture_name
+; FlashROM command address
+; -----------------------------------------------------------------------------
+SIMPLE_CMD_2AAA	:= 0x2AAA
+SIMPLE_CMD_5555	:= 0x5555
+
+; -----------------------------------------------------------------------------
+; is_slot_simple64k
 ; input:
-;    a .... Target manufacture ID.
+;    a ..... Target slot
 ; output:
-;    de ... Target string address.
-;    Zf ... 0: Unkown, 1: Matched
+;    Zf ................... 0: not Simple64k, 1: Simple64k
+;    [manufacture_id] ..... Manufacture ID/Device ID
 ; break:
 ;    all
+; comment:
+;    Change page2 to the target slot and do not put it back.
+;    Return in DI state.
 ; -----------------------------------------------------------------------------
-			scope	get_manufacture_name
-get_manufacture_name::
-			cp		a, MID_AMD
-			ld		de, s_amd
-			ret		z
-			cp		a, MID_SST
-			ld		de, s_sst
-			ret		z
-			ld		de, s_unknown
+			scope	is_slot_simple64k
+is_slot_simple64k::
+			xor		a, a
+			inc		a
 			ret
-s_amd:
-			ds		"AMD"
-			db		0
-s_sst:
-			ds		"SST"
-			db		0
-s_unknown::
-			ds		"Unknown"
-			db		0
 			endscope
 
 ; -----------------------------------------------------------------------------
-; get_device_name
+; setup_slot_rc755
 ; input:
-;    a .... Target manufacture ID.
+;    a ..... Target slot
 ; output:
-;    de ... Target string address.
-;    Zf ... 0: Unkown, 1: Matched
+;    [manufacture_id] ..... Manufacture ID/Device ID
 ; break:
 ;    all
-; -----------------------------------------------------------------------------
-			scope	get_device_name
-get_device_name::
-			cp		a, DID_AM29F040B
-			ld		de, s_am29f040b
-			ret		z
-			cp		a, DID_SST39SF010A
-			ld		de, s_sst39sf010a
-			ret		z
-			cp		a, DID_SST39SF020A
-			ld		de, s_sst39sf020a
-			ret		z
-			cp		a, DID_SST39SF040
-			ld		de, s_sst39sf040
-			ret		z
-			ld		de, s_unknown
-			ret
-s_am29f040b:
-			ds		"AM29F040B"
-			db		0
-s_sst39sf010a:
-			ds		"SST39SF010A"
-			db		0
-s_sst39sf020a:
-			ds		"SST39SF020A"
-			db		0
-s_sst39sf040:
-			ds		"SST39SF040"
-			db		0
-			endscope
-
-; -----------------------------------------------------------------------------
-; setup_flash_command
-; input:
-;    hl ... Address table.
-; output:
+; comment:
 ;    none
-; break:
-;    all
 ; -----------------------------------------------------------------------------
-			scope	setup_flash_command
-setup_flash_command::
-			ld		de, jump_table
-			ld		bc, jump_table_end - jump_table
-			ldir
+			scope	setup_slot_simple64k
+setup_slot_simple64k::
 			ret
 			endscope
-
-; -----------------------------------------------------------------------------
-; is_rom
-; input:
-;    hl ..... Target address
-; output:
-;    Zf ..... 0: ROM, 1: RAM
-; break:
-;    a
-; -----------------------------------------------------------------------------
-			scope	is_rom
-is_rom::
-			ld		a, [hl]
-			cpl
-			ld		[hl], a
-			cp		a, [hl]
-			cpl
-			ld		[hl], a
-			ret
-			endscope
-
-; -----------------------------------------------------------------------------
-; jump table
-; -----------------------------------------------------------------------------
-jump_table:
-flash_chip_erase::
-			jp		0
-flash_write_byte::
-			jp		0
-jump_table_end:
