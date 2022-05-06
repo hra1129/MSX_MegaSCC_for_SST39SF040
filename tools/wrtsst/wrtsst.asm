@@ -95,11 +95,16 @@ entry_point::
 			srl		h
 			rr		l
 			ld		b, l					; MAX 64 = 512KB
+			ld		a, l
+			ld		[progress_max], a
 			ld		c, a					; bank#
 block_write_loop:
 			ld		a, c
 			call	flash_set_bank
 			push	bc
+
+			ld		a, b
+			call	display_progress_bar
 			; read one block (8KB)
 			ld		c, _RDBLK
 			ld		de, fcb
@@ -112,6 +117,10 @@ block_write_loop:
 			jr		c, puts_and_exit
 			inc		c						; next bank
 			djnz	block_write_loop
+
+			ld		a, b
+			call	display_progress_bar
+			call	puts_crlf
 
 			; close the file.
 			ld		c, _FCLOSE
@@ -270,6 +279,72 @@ fl2:
 			dec		c
 			jp		z, l1
 			jr		fl2
+			endscope
+
+; -----------------------------------------------------------------------------
+; display progress bar
+; input:
+;    a ...... progress value ( 0: 100%, progress_max: 0% )
+; output:
+;    none
+; -----------------------------------------------------------------------------
+			scope	display_progress_bar
+display_progress_bar::
+			push	af
+			; fill '-' into progress.
+			ld		hl, progress
+			ld		de, progress + 1
+			ld		bc, 16 - 1
+			ld		a, '-'
+			ld		[hl], a
+			ldir
+			pop		af
+			; Convert progress value: A=0 is 0%, A=progress_max is 100%
+			ld		b, a
+			ld		a, [progress_max]
+			sub		a, b
+			; D = A * 16 / progress_max
+			push	af
+			ld		a, [progress_max]
+			ld		e, a
+			pop		af
+			ld		c, a
+			xor		a, a
+			ld		d, a
+			ld		b, 12
+divide_loop:
+			sla		c
+			rla
+			sub		a, e
+			jr		nc, skip_add
+			add		a, e
+skip_add:
+			ccf
+			rl		d
+			djnz	divide_loop
+			; check 0%
+			ld		a, d
+			or		a, a
+			jr		z, skip_fill
+			; fill '#' into progress.
+			ld		c, a				; b is already zero.
+			ld		hl, progress
+			ld		de, progress + 1
+			ld		a, '#'
+			ld		[hl], a
+			dec		c
+			jr		z, skip_fill
+			ldir
+skip_fill:
+			ld		de, progress_bar
+			call	puts
+			ret
+progress_bar:
+			ds		"|"
+progress:
+			space	16, '-'
+			ds		"|\r"
+			db		0
 			endscope
 
 ; -----------------------------------------------------------------------------
@@ -665,7 +740,8 @@ device_id::
 			db		0
 rom_type::
 			db		0					; 0: MegaSCC, 1: RC755, 2: Simple64K
-
+progress_max::
+			db		0
 fcb::
 fcb_dr::
 			db		0					; 0: Default Drive, 1: A, 2: B, ... 8: H
