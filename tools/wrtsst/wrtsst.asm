@@ -59,6 +59,7 @@ JIFFY		:= 0xFC9E
 ;	Entry Point
 ; -----------------------------------------------------------------------------
 			org		0x100
+			scope	entry_point
 entry_point::
 			; Display informations
 			ld		de, title_message
@@ -84,17 +85,50 @@ entry_point::
 			call	puts
 			call	flash_chip_erase
 
+			call	flash_get_start_bank
+
+			ld		hl, [file_size]
+			srl		h
+			rr		l
+			srl		h
+			rr		l
+			srl		h
+			rr		l
+			ld		b, l					; MAX 64 = 512KB
+			ld		c, a					; bank#
+block_write_loop:
+			ld		a, c
+			call	flash_set_bank
+			push	bc
+			; read one block (8KB)
+			ld		c, _RDBLK
+			ld		de, fcb
+			ld		hl, 8					; 8KB
+			call	BDOS
+
+			call	flash_write_8kb
+			pop		bc
+			ld		de, write_error_message
+			jr		c, puts_and_exit
+			inc		c						; next bank
+			djnz	block_write_loop
+
+			; close the file.
+			ld		c, _FCLOSE
+			ld		de, fcb
+			call	BDOS
+
 			ld		de, completed_message
-l1:
+puts_and_exit:
 			call	puts
 
 			call	restore_dos_slot
 			ld		c, _TERM0
-			jp		bdos
+			jp		BDOS
 
 not_detected:
 			ld		de, not_detected_message
-			jr		l1
+			jr		puts_and_exit
 
 title_message:
 			ds		"WRTSST [SST FlashROM Writer] v0.00\r\n"
@@ -109,6 +143,10 @@ completed_message:
 not_detected_message:
 			ds		"Could not detect flash cartridge.\r\n"
 			db		0
+write_error_message:
+			ds		"Write failed.\r\n"
+			db		0
+			endscope
 
 ; -----------------------------------------------------------------------------
 ; command_line_options
@@ -275,7 +313,16 @@ file_open::
 			rr		l
 			srl		h
 			rr		l
-			ld		[target_size], hl
+			ld		[file_size], hl
+
+			; set DTA
+			ld		c, _SETDTA
+			ld		de, 0x2000
+			call	BDOS
+
+			; set record size
+			ld		hl, 1024
+			ld		[fcb_s2], hl
 			ret
 
 put_error:
@@ -608,7 +655,9 @@ cartridge_type_table:
 ; -----------------------------------------------------------------------------
 target_slot::
 			db		0xFF				; 0xFF: auto, 0bE000DDCC: slot number
-target_size::
+file_size::
+			dw		0					; KB
+rom_size::
 			dw		0					; KB
 manufacture_id::
 			db		0

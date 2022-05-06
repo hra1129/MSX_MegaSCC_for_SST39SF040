@@ -175,40 +175,59 @@ setup_slot_scc::
 
 scc_flash_jump_table:
 			jp		scc_flash_chip_erase
-			jp		scc_flash_write_byte
+			jp		scc_flash_write_8kb
+			jp		scc_set_bank
+			jp		scc_get_start_bank
 			endscope
 
 ; -----------------------------------------------------------------------------
-; scc_flash_write_byte
+; scc_flash_write_8kb
 ; input:
-;    hl .... target address (BANK0: 4000h-5FFFh)
-;    a ..... write value
+;    none
 ; output:
-;    Zf .... 0: Failed, 1: Success
+;    Cf .... 0: success, 1: error
 ; break:
 ;    all
 ; comment:
-;
+;    Copies the contents of 0x2000-0x3FFF to the area appearing in 0x4000-0x5FFF.
 ; -----------------------------------------------------------------------------
-			scope		scc_flash_write_byte
-scc_flash_write_byte::
-			push		af
+			scope		scc_flash_write_8kb
+scc_flash_write_8kb::
+			ld			de, 0x2000				; source address
+			ld			hl, 0x4000				; destination address
+			ld			bc, 0x2000				; transfer bytes
+loop_of_bc:
 			ld			a, 0xAA
 			ld			[SCC_CMD_5555], a
 			ld			a, 0x55
 			ld			[SCC_CMD_2AAA], a
 			ld			a, 0xA0
 			ld			[SCC_CMD_5555], a
-			pop			af
+			ld			a, [de]
 			ld			[hl], a
-			call		scc_restore_bank0
-			ld			b, 0
-l1:
-			ld			c, [hl]
-			cp			a, c
+			call		scc_restore_bank
+
+			ld			a, [de]
+			push		bc
+			ld			b, 0					; timeout 256 count
+wait_for_write_complete:
+			cp			a, [hl]
+			jr			z, write_complete
 			nop
-			ret			z
-			djnz		l1
+			djnz		wait_for_write_complete
+write_error:
+			pop			bc
+			scf
+			ret
+write_complete:
+			pop			bc
+
+			inc			de
+			inc			hl
+			dec			bc
+			ld			a, b
+			or			a, c					; Cf = 0
+			jr			nz, loop_of_bc
 			ret
 			endscope
 
@@ -250,20 +269,38 @@ wait_l1:
 			endscope
 
 ; -----------------------------------------------------------------------------
-; scc_set_bank0
+; scc_set_bank
 ; input:
 ;    a ..... BANK ID
 ; output:
 ;    none
 ; break:
+;    none
+; comment:
+;
+; -----------------------------------------------------------------------------
+			scope		scc_set_bank
+scc_set_bank::
+			ld			[SCC_BANK0_SEL], a
+			ld			[bank_back], a
+			ret
+			endscope
+
+; -----------------------------------------------------------------------------
+; scc_get_start_bank
+; input:
+;    hl ..... target size [KB]
+; output:
+;    a ...... 0 (start bank)
+;    Cf ..... 0: too big, 1: success
+; break:
 ;    all
 ; comment:
 ;
 ; -----------------------------------------------------------------------------
-			scope		scc_set_bank0
-scc_set_bank0::
-			ld			[SCC_BANK0_SEL], a
-			ld			[bank0_back], a
+			scope		scc_get_start_bank
+scc_get_start_bank::
+			xor			a, a
 			ret
 			endscope
 
@@ -278,12 +315,12 @@ scc_set_bank0::
 ; comment:
 ;
 ; -----------------------------------------------------------------------------
-			scope		scc_restore_bank0
-scc_restore_bank0::
-			ld			a, [bank0_back]
+			scope		scc_restore_bank
+scc_restore_bank::
+			ld			a, [bank_back]
 			ld			[SCC_BANK0_SEL], a
 			ret
 			endscope
 
-bank0_back:
+bank_back:
 			db			0

@@ -62,73 +62,73 @@ RC755_FLASH		:= 0x80
 ;    Change page2 to the target slot and do not put it back.
 ;    Return in DI state.
 ; -----------------------------------------------------------------------------
-			scope	is_slot_rc755
+			scope		is_slot_rc755
 not_rc755:
-			xor		a, a
-			inc		a
-			ret							; Zf = 0: not RC755
+			xor			a, a
+			inc			a
+			ret								; Zf = 0: not RC755
 
 is_slot_rc755::
 			; Change to target slot on page1 and page2
-			push	af
-			ld		h, 0x40
-			call	ENASLT				; DI
-			pop		af
-			ld		h, 0x80
-			call	ENASLT				; DI
+			push		af
+			ld			h, 0x40
+			call		ENASLT				; DI
+			pop			af
+			ld			h, 0x80
+			call		ENASLT				; DI
 			; Is ROM, Page1 and Page2?
-			ld		hl, 0x5000
-			call	is_rom
-			jr		z, not_rc755
-			ld		hl, 0x7000
-			call	is_rom
-			jr		z, not_rc755
-			ld		hl, 0x9000
-			call	is_rom
-			jr		z, not_rc755
-			ld		hl, 0xB000
-			call	is_rom
-			jr		z, not_rc755
+			ld			hl, 0x5000
+			call		is_rom
+			jr			z, not_rc755
+			ld			hl, 0x7000
+			call		is_rom
+			jr			z, not_rc755
+			ld			hl, 0x9000
+			call		is_rom
+			jr			z, not_rc755
+			ld			hl, 0xB000
+			call		is_rom
+			jr			z, not_rc755
 			; Change BANK#0 on BANK1
-			xor		a, a
-			ld		[RC755_BANK1_SEL], a
+			xor			a, a
+			ld			[RC755_BANK1_SEL], a
 			; Change Flash Mode
-			ld		a, RC755_FLASH
-			ld		[RC755_BANK3_SEL], a
+			ld			a, RC755_FLASH
+			ld			[RC755_BANK3_SEL], a
 			; Get Manufacture ID
-			ld		hl, 0x4000
-			ld		a, 0xAA
-			ld		[RC755_CMD_5555], a
-			ld		a, 0x55
-			ld		[RC755_CMD_2AAA], a
-			ld		a, 0x90
-			ld		[RC755_CMD_5555], a
-			ld		e, [hl]
-			inc		hl
+			ld			hl, 0x4000
+			ld			a, 0xAA
+			ld			[RC755_CMD_5555], a
+			ld			a, 0x55
+			ld			[RC755_CMD_2AAA], a
+			ld			a, 0x90
+			ld			[RC755_CMD_5555], a
+			ld			e, [hl]
+			inc			hl
 
-			ld		a, 0xAA
-			ld		[RC755_CMD_5555], a
-			ld		a, 0x55
-			ld		[RC755_CMD_2AAA], a
-			ld		a, 0x90
-			ld		[RC755_CMD_5555], a
-			ld		d, [hl]
+			ld			a, 0xAA
+			ld			[RC755_CMD_5555], a
+			ld			a, 0x55
+			ld			[RC755_CMD_2AAA], a
+			ld			a, 0x90
+			ld			[RC755_CMD_5555], a
+			ld			d, [hl]
 
-			ld		[manufacture_id], de
+			ld			[manufacture_id], de
 
-			ld		a, 0xF0
-			ld		[hl], a
+			ld			a, 0xF0
+			ld			[hl], a
 
 			; Change Flash Mode
-			ld		a, 0x03
-			ld		[RC755_BANK3_SEL], a
+			ld			a, 0x03
+			ld			[RC755_BANK3_SEL], a
 
-			ld		a, e
-			call	get_manufacture_name
-			ret		nz
+			ld			a, e
+			call		get_manufacture_name
+			ret			nz
 
-			ld		a, [manufacture_id + 1]
-			call	get_device_name
+			ld			a, [manufacture_id + 1]
+			call		get_device_name
 			ret
 			endscope
 
@@ -143,14 +143,78 @@ is_slot_rc755::
 ; comment:
 ;    none
 ; -----------------------------------------------------------------------------
-			scope	setup_slot_rc755
+			scope		setup_slot_rc755
 setup_slot_rc755::
 			; Setup
-			ld		hl, rc755_flash_jump_table
-			call	setup_flash_command
+			ld			hl, rc755_flash_jump_table
+			call		setup_flash_command
+			ret
+
+rc755_flash_jump_table:
+			jp			rc755_flash_chip_erase
+			jp			rc755_flash_write_8kb
+			jp			rc755_set_bank
+			jp			rc755_get_start_bank
+			endscope
+
+; -----------------------------------------------------------------------------
+; rc755_flash_write_8kb
+; input:
+;    none
+; output:
+;    none
+; break:
+;    all
+; comment:
+;    Copies the contents of 0x2000-0x3FFF to the area appearing in 0x6000-0x7FFF.
+; -----------------------------------------------------------------------------
+			scope		rc755_flash_write_8kb
+rc755_flash_write_8kb::
+			ld			de, 0x2000				; source address
+			ld			hl, 0x6000				; destination address
+			ld			bc, 0x2000				; transfer bytes
+l0:
+			ld			a, 0xAA
+			ld			[RC755_CMD_5555], a
+			ld			a, 0x55
+			ld			[RC755_CMD_2AAA], a
+			ld			a, 0xA0
+			ld			[RC755_CMD_5555], a
+			ld			a, [de]
+			ld			[hl], a
+			call		rc755_restore_bank
+
+			ld			a, [de]
+			push		bc
+			ld			b, 0
+l1:
+			cp			a, [hl]
+			jr			z, l2
+			nop
+			djnz		l1
+l2:
+			pop			bc
+
+			inc			de
+			inc			hl
+			dec			bc
+			ld			a, b
+			or			a, c
+			jr			nz, l0
 			ret
 			endscope
 
+; -----------------------------------------------------------------------------
+; rc755_flash_chip_erase
+; input:
+;    none
+; output:
+;    none
+; break:
+;    all
+; comment:
+;
+; -----------------------------------------------------------------------------
 			scope	rc755_flash_chip_erase
 rc755_flash_chip_erase::
 			ld		a, 0xAA
@@ -178,11 +242,56 @@ wait_l1:
 			ret
 			endscope
 
-			scope	rc755_flash_write_byte
-rc755_flash_write_byte::
+; -----------------------------------------------------------------------------
+; scc_set_bank
+; input:
+;    a ..... BANK ID
+; output:
+;    none
+; break:
+;    all
+; comment:
+;
+; -----------------------------------------------------------------------------
+			scope		rc755_set_bank
+rc755_set_bank::
+			ld			[RC755_BANK1_SEL], a
+			ld			[bank_back], a
 			ret
 			endscope
 
-rc755_flash_jump_table:
-			jp		rc755_flash_chip_erase
-			jp		rc755_flash_write_byte
+; -----------------------------------------------------------------------------
+; scc_get_start_bank
+; input:
+;    hl ..... target size [KB]
+; output:
+;    a ...... 0 (start bank)
+;    Cf ..... 0: too big, 1: success
+; break:
+;    all
+; comment:
+;
+; -----------------------------------------------------------------------------
+			scope		rc755_get_start_bank
+rc755_get_start_bank::
+			xor			a, a
+			ret
+			endscope
+
+; -----------------------------------------------------------------------------
+; scc_restore_bank0
+; input:
+;    none
+; output:
+;    none
+; break:
+;    all
+; comment:
+;
+; -----------------------------------------------------------------------------
+			scope		rc755_restore_bank
+rc755_restore_bank::
+			ld			a, [bank_back]
+			ld			[SCC_BANK1_SEL], a
+			ret
+			endscope

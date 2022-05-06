@@ -85,18 +85,29 @@ s_unknown::
 ; -----------------------------------------------------------------------------
 			scope	get_device_name
 get_device_name::
+			ld		hl, 512
+			ld		[rom_size], hl
 			cp		a, DID_AM29F040B
 			ld		de, s_am29f040b
-			ret		z
-			cp		a, DID_SST39SF010A
-			ld		de, s_sst39sf010a
-			ret		z
-			cp		a, DID_SST39SF020A
-			ld		de, s_sst39sf020a
 			ret		z
 			cp		a, DID_SST39SF040
 			ld		de, s_sst39sf040
 			ret		z
+
+			ld		hl, 256
+			ld		[rom_size], hl
+			cp		a, DID_SST39SF020A
+			ld		de, s_sst39sf020a
+			ret		z
+
+			ld		hl, 128
+			ld		[rom_size], hl
+			cp		a, DID_SST39SF010A
+			ld		de, s_sst39sf010a
+			ret		z
+
+			ld		hl, 0
+			ld		[rom_size], hl
 			ld		de, s_unknown
 			ret
 s_am29f040b:
@@ -156,6 +167,10 @@ is_rom::
 jump_table:
 flash_chip_erase::
 			jp		0
-flash_write_byte::
+flash_write_8kb::
+			jp		0
+flash_set_bank::
+			jp		0
+flash_get_start_bank::
 			jp		0
 jump_table_end:
