@@ -85,6 +85,9 @@ entry_point::
 			call	puts
 			call	flash_chip_erase
 
+			ld		de, ok_message
+			call	puts
+
 			call	flash_get_start_bank
 
 			ld		hl, [file_size]
@@ -144,7 +147,10 @@ title_message:
 			ds		"Copyright (C)2022 HRA!\r\n"
 			db		0
 erase_message:
-			ds		"Erase ROM datas.\r\n"
+			ds		"ERASE ROM ... "
+			db		0
+ok_message:
+			ds		"OK\r\n"
 			db		0
 completed_message:
 			ds		"\r\nCompleted.\r\n"
@@ -153,7 +159,7 @@ not_detected_message:
 			ds		"Could not detect flash cartridge.\r\n"
 			db		0
 write_error_message:
-			ds		"Write failed.\r\n"
+			ds		"\r\nWrite failed.\r\n"
 			db		0
 			endscope
 
@@ -340,7 +346,7 @@ skip_fill:
 			call	puts
 			ret
 progress_bar:
-			ds		"|"
+			ds		"WRITE ROM |"
 progress:
 			space	16, '-'
 			ds		"|\r"
@@ -555,7 +561,7 @@ fname_message:
 check_target_slot::
 			ld			a, [target_slot]
 			inc			a
-			ret			nz					; If a slot number is specified, return without doing anything.
+			jp			nz, constant_target		; If a slot number is specified, return without doing anything.
 
 			ld			hl, EXPTBL
 l1:
@@ -594,6 +600,10 @@ next_slot:
 			xor			a, a
 			inc			a
 			ret
+
+constant_target:
+			dec			a
+			jp			detect_target
 			endscope
 
 ; -----------------------------------------------------------------------------

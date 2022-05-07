@@ -137,7 +137,7 @@ is_slot_rc755::
 ; input:
 ;    a ..... Target slot
 ; output:
-;    [manufacture_id] ..... Manufacture ID/Device ID
+;    none
 ; break:
 ;    all
 ; comment:
@@ -145,6 +145,13 @@ is_slot_rc755::
 ; -----------------------------------------------------------------------------
 			scope		setup_slot_rc755
 setup_slot_rc755::
+			; Change to target slot on page1 and page2
+			push		af
+			ld			h, 0x40
+			call		ENASLT				; DI
+			pop			af
+			ld			h, 0x80
+			call		ENASLT				; DI
 			; Setup
 			ld			hl, rc755_flash_jump_table
 			call		setup_flash_command
@@ -162,7 +169,7 @@ rc755_flash_jump_table:
 ; input:
 ;    none
 ; output:
-;    none
+;    Cf .... 0: success, 1: error
 ; break:
 ;    all
 ; comment:
@@ -173,7 +180,10 @@ rc755_flash_write_8kb::
 			ld			de, 0x2000				; source address
 			ld			hl, 0x6000				; destination address
 			ld			bc, 0x2000				; transfer bytes
-l0:
+			; Change Flash Mode
+			ld			a, RC755_FLASH
+			ld			[RC755_BANK3_SEL], a
+loop_of_bc:
 			ld			a, 0xAA
 			ld			[RC755_CMD_5555], a
 			ld			a, 0x55
@@ -186,21 +196,30 @@ l0:
 
 			ld			a, [de]
 			push		bc
-			ld			b, 0
-l1:
-			cp			a, [hl]
-			jr			z, l2
+			ld			b, 0					; timeout 256 count
+wait_for_write_complete:
 			nop
-			djnz		l1
-l2:
+			nop
+			cp			a, [hl]
+			jr			z, write_complete
+			djnz		wait_for_write_complete
+write_error:
+			pop			bc
+			scf
+			ret
+write_complete:
 			pop			bc
 
 			inc			de
 			inc			hl
 			dec			bc
 			ld			a, b
-			or			a, c
-			jr			nz, l0
+			or			a, c					; Cf = 0
+			jr			nz, loop_of_bc
+
+			; Change Flash Mode
+			ld			a, 0x03
+			ld			[RC755_BANK3_SEL], a
 			ret
 			endscope
 
@@ -238,7 +257,6 @@ wait_l1:
 			cp		a, [hl]
 			jr		nz, wait_l1
 			di
-			ret
 			ret
 			endscope
 
@@ -292,6 +310,6 @@ rc755_get_start_bank::
 			scope		rc755_restore_bank
 rc755_restore_bank::
 			ld			a, [bank_back]
-			ld			[SCC_BANK1_SEL], a
+			ld			[RC755_BANK1_SEL], a
 			ret
 			endscope
