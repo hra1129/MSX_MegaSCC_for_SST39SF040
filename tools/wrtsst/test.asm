@@ -75,22 +75,22 @@ entry_point::
 
 			call	file_open
 
-			call	check_target_slot
-			jp		nz, not_detected
-			call	restore_dos_slot
+;			call	check_target_slot
+;			jp		nz, not_detected
+;			call	restore_dos_slot
 
-			call	display_target_slot
-			call	puts_crlf
+;			call	display_target_slot
+;			call	puts_crlf
 
-			ld		de, erase_message
-			call	puts
-			call	flash_chip_erase
+;			ld		de, erase_message
+;			call	puts
+;			call	flash_chip_erase
+;			call	restore_dos_slot
 
-			ld		de, ok_message
-			call	puts
+;			ld		de, ok_message
+;			call	puts
 
-			call	flash_get_start_bank
-			ld		c, a					; bank#
+;			call	flash_get_start_bank
 
 			ld		hl, [file_size]
 			srl		h
@@ -102,10 +102,11 @@ entry_point::
 			ld		b, l					; MAX 64 = 512KB
 			ld		a, l
 			ld		[progress_max], a
+			ld		c, a					; bank#
 block_write_loop:
 			ld		a, c
+;			call	flash_set_bank
 			push	bc
-			call	flash_set_bank
 
 			ld		a, b
 			call	display_progress_bar
@@ -115,10 +116,23 @@ block_write_loop:
 			ld		hl, 8					; 8KB
 			call	BDOS
 
-			call	flash_write_8kb
+			ld		hl, [0x2000]
+			call	puthex16
+
+			ld		hl, [0x2002]
+			call	puthex16
+
+			ld		hl, [0x2004]
+			call	puthex16
+
+			ld		hl, [0x2006]
+			call	puthex16
+
+;			call	flash_write_8kb
+;			call	restore_dos_slot
 			pop		bc
-			ld		de, write_error_message
-			jr		c, puts_and_exit
+;			ld		de, write_error_message
+;			jr		c, puts_and_exit
 			inc		c						; next bank
 			djnz	block_write_loop
 
@@ -135,7 +149,7 @@ block_write_loop:
 puts_and_exit:
 			call	puts
 
-			call	restore_dos_slot
+;			call	restore_dos_slot
 			ld		c, _TERM0
 			jp		BDOS
 
@@ -753,8 +767,6 @@ device_id::
 rom_type::
 			db		0					; 0: MegaSCC, 1: RC755, 2: Simple64K
 progress_max::
-			db		0
-bank_back:
 			db		0
 fcb::
 fcb_dr::

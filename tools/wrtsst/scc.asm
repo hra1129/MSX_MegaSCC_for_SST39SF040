@@ -154,17 +154,15 @@ setup_slot_scc::
 			ld		[SCC_CMD_5555], a
 			ld		e, [hl]
 			inc		hl
+			ld		d, [hl]
+			ld		[manufacture_id], de
+
 			ld		a, 0xAA
 			ld		[SCC_CMD_5555], a
 			ld		a, 0x55
 			ld		[SCC_CMD_2AAA], a
-			ld		a, 0x90
-			ld		[SCC_CMD_5555], a
-			ld		d, [hl]
-			ld		[manufacture_id], de
-
 			ld		a, 0xF0
-			ld		[hl], a
+			ld		[SCC_CMD_5555], a
 
 			ld		a, [manufacture_id]
 			call	get_manufacture_name
@@ -193,41 +191,65 @@ scc_flash_jump_table:
 ; -----------------------------------------------------------------------------
 			scope		scc_flash_write_8kb
 scc_flash_write_8kb::
-			ld			de, 0x2000				; source address
-			ld			hl, 0x4000				; destination address
-			ld			bc, 0x2000				; transfer bytes
-loop_of_bc:
-			ld			a, 0xAA
-			ld			[SCC_CMD_5555], a
-			ld			a, 0x55
-			ld			[SCC_CMD_2AAA], a
-			ld			a, 0xA0
-			ld			[SCC_CMD_5555], a
-			ld			a, [de]
-			ld			[hl], a
-			call		scc_restore_bank
+			; Change to target slot on page1
+			ld		a, [target_slot]
+			ld		h, 0x40
+			call	ENASLT					; DI
+			; Change to target slot on page2
+			ld		a, [target_slot]
+			ld		h, 0x80
+			call	ENASLT					; DI
 
-			ld			a, [de]
-			push		bc
-			ld			b, 0					; timeout 256 count
+			ld		a, [bank_back]
+			ld		[SCC_BANK0_SEL], a
+			ld		a, 1
+			ld		[SCC_BANK2_SEL], a
+			ld		a, 6
+			ld		[SCC_BANK3_SEL], a
+
+			ld		de, 0x2000				; source address
+			ld		hl, 0x4000				; destination address
+			ld		bc, 0x2000				; transfer bytes
+loop_of_bc:
+			ld		a, 0xAA
+			ld		[SCC_CMD_5555], a
+			ld		a, 0x55
+			ld		[SCC_CMD_2AAA], a
+			ld		a, 0xA0
+			ld		[SCC_CMD_5555], a
+			ld		a, [de]
+			ld		[hl], a
+			ld		a, [bank_back]
+			ld		[SCC_BANK0_SEL], a
+
+			ld		a, [de]
+			push	bc
+			ld		bc, 0					; timeout 65536 count
 wait_for_write_complete:
-			cp			a, [hl]
-			jr			z, write_complete
 			nop
-			djnz		wait_for_write_complete
+			nop
+			cp		a, [hl]
+			jr		z, write_complete
+			djnz	wait_for_write_complete
+			dec		c
+			jr		nz, wait_for_write_complete
 write_error:
-			pop			bc
+			pop		bc
+			call	restore_dos_slot
 			scf
 			ret
 write_complete:
-			pop			bc
+			pop		bc
 
-			inc			de
-			inc			hl
-			dec			bc
-			ld			a, b
-			or			a, c					; Cf = 0
-			jr			nz, loop_of_bc
+			inc		de
+			inc		hl
+			dec		bc
+			ld		a, b
+			or		a, c
+			jr		nz, loop_of_bc
+
+			call	restore_dos_slot
+			or		a, a					; Cf = 0
 			ret
 			endscope
 
@@ -244,27 +266,42 @@ write_complete:
 ; -----------------------------------------------------------------------------
 			scope		scc_flash_chip_erase
 scc_flash_chip_erase::
-			ld			a, 0xAA
-			ld			[SCC_CMD_5555], a
-			ld			a, 0x55
-			ld			[SCC_CMD_2AAA], a
-			ld			a, 0x80
-			ld			[SCC_CMD_5555], a
-			ld			a, 0xAA
-			ld			[SCC_CMD_5555], a
-			ld			a, 0x55
-			ld			[SCC_CMD_2AAA], a
-			ld			a, 0x10
-			ld			[SCC_CMD_5555], a
+			; Change to target slot on page1
+			ld		a, [target_slot]
+			ld		h, 0x40
+			call	ENASLT					; DI
+			; Change to target slot on page2
+			ld		a, [target_slot]
+			ld		h, 0x80
+			call	ENASLT					; DI
 
-			ld			hl, JIFFY
-			ld			a, [hl]
-			add			a, 10
+			ld		a, 1
+			ld		[SCC_BANK2_SEL], a
+			ld		a, 6
+			ld		[SCC_BANK3_SEL], a
+
+			ld		a, 0xAA
+			ld		[SCC_CMD_5555], a
+			ld		a, 0x55
+			ld		[SCC_CMD_2AAA], a
+			ld		a, 0x80
+			ld		[SCC_CMD_5555], a
+			ld		a, 0xAA
+			ld		[SCC_CMD_5555], a
+			ld		a, 0x55
+			ld		[SCC_CMD_2AAA], a
+			ld		a, 0x10
+			ld		[SCC_CMD_5555], a
+
+			ld		hl, JIFFY
+			ld		a, [hl]
+			add		a, 10
 			ei
 wait_l1:
-			cp			a, [hl]
-			jr			nz, wait_l1
+			cp		a, [hl]
+			jr		nz, wait_l1
 			di
+			call	restore_dos_slot
 			ret
 			endscope
 
@@ -279,10 +316,9 @@ wait_l1:
 ; comment:
 ;
 ; -----------------------------------------------------------------------------
-			scope		scc_set_bank
+			scope	scc_set_bank
 scc_set_bank::
-			ld			[SCC_BANK0_SEL], a
-			ld			[bank_back], a
+			ld		[bank_back], a
 			ret
 			endscope
 
@@ -298,9 +334,9 @@ scc_set_bank::
 ; comment:
 ;
 ; -----------------------------------------------------------------------------
-			scope		scc_get_start_bank
+			scope	scc_get_start_bank
 scc_get_start_bank::
-			xor			a, a
+			xor		a, a
 			ret
 			endscope
 
@@ -315,12 +351,9 @@ scc_get_start_bank::
 ; comment:
 ;
 ; -----------------------------------------------------------------------------
-			scope		scc_restore_bank
+			scope	scc_restore_bank
 scc_restore_bank::
-			ld			a, [bank_back]
-			ld			[SCC_BANK0_SEL], a
+			ld		a, [bank_back]
+			ld		[SCC_BANK0_SEL], a
 			ret
 			endscope
-
-bank_back:
-			db			0
