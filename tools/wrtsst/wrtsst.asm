@@ -209,6 +209,8 @@ option:
 			jp		z, usage
 			cp		a, 'S'
 			jp		z, option_s
+			cp		a, 'A'
+			jp		z, option_a
 			jp		usage
 option_s:
 			call	get_one
@@ -286,6 +288,15 @@ fl2:
 			dec		c
 			jp		z, l1
 			jr		fl2
+
+option_a:
+			call	get_one
+			jp		z, usage
+			sub		a, '0'
+			cp		a, 10
+			jp		nc, usage
+			ld		[target_block_for_simple64k], a
+			jp		l1
 			endscope
 
 ; -----------------------------------------------------------------------------
@@ -447,6 +458,7 @@ usage_message:
 			ds		"  /Sx ........ Rewrite in SLOT#x.\r\n"
 			ds		"  /Sx-y ...... Rewrite in SLOT#x-y.\r\n"
 			ds		"  /S omitted . Auto detect.\r\n"
+			ds		"  /At ........ Set target block#t for Simple64K.\r\n"
 			db		0
 			endscope
 
@@ -770,6 +782,8 @@ file_size::
 			dw		0					; KB
 rom_size::
 			dw		0					; KB
+target_block_for_simple64k:
+			db		255					; 255: ignore, 0...7: block number
 manufacture_id::
 			db		0
 device_id::

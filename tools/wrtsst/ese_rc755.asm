@@ -316,7 +316,7 @@ rc755_set_bank::
 ;    hl ..... target size [KB]
 ; output:
 ;    a ...... 0 (start bank)
-;    Cf ..... 0: too big, 1: success
+;    Cf ..... 1: too big, 0: success
 ; break:
 ;    all
 ; comment:

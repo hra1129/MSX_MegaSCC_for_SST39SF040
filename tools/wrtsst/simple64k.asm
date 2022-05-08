@@ -94,6 +94,7 @@ is_slot_simple64k::
 			call	is_rom
 			jr		z, not_simple64k
 
+			call	restore_dos_slot
 			call	transfer_to_page2
 			call	get_id_simple_64k
 
@@ -165,7 +166,7 @@ simple64k_set_bank::
 ;    hl ..... target size [KB]
 ; output:
 ;    a ...... 0 (start bank)
-;    Cf ..... 0: too big, 1: success
+;    Cf ..... 1: too big, 0: success
 ; break:
 ;    all
 ; comment:
@@ -175,18 +176,44 @@ simple64k_set_bank::
 simple64k_get_start_bank::
 			ld			a, h
 			or			a, a
-			ret			nz
+			scf
+			ret			nz			; too BIG
+
+			ld			a, l
+			cp			a, 64
+			ccf
+			ret			c			; too BIG
+
+			ld			a, [target_block_for_simple64k]
+			inc			a
+			jr			z, target_address_request
 
 			ld			a, l
 			cp			a, 33
-			jr			c, file_32kb
+			jr			c, file_under_32kb
 
-file_48kb_or_64kb:
+file_33kb_to_64kb:
 			xor			a, a		; 0x0000-
 			ret
-file_32kb:
-			ld			a, 4		; 0x4000-
+file_under_32kb:
+			ld			a, 2		; 0x4000-
 			or			a, a
+			ret
+
+target_address_request:
+			dec			a
+			ld			b, a
+
+			ld			a, l
+			rrca
+			rrca
+			rrca
+			add			a, b
+			cp			a, 8
+			ccf
+			ret			c			; too BIG
+
+			ld			a, b
 			ret
 			endscope
 
@@ -203,6 +230,7 @@ file_32kb:
 ; -----------------------------------------------------------------------------
 			scope	transfer_to_page2
 transfer_to_page2::
+			; transfer subroutines for page2
 			ld		hl, transfer_to_page2_start
 			ld		de, page2_start
 			ld		bc, page2_end - page2_start
@@ -224,12 +252,13 @@ transfer_to_page2::
 			scope	transfer_to_page3
 transfer_to_page3::
 			di
+			push	hl
 			; backup page3
 			ld		hl, 0xC000
 			ld		de, 0x4000
 			ld		bc, 0x4000
 			ldir
-			; transfer subroutines to page3
+			; transfer subroutines for page3
 			ld		hl, transfer_to_page3_start
 			ld		de, page3_start
 			ld		bc, page3_end - page3_start
@@ -239,27 +268,7 @@ transfer_to_page3::
 			ld		de, 0xC000
 			ld		bc, 0x2000
 			ldir
-			ret
-			endscope
-
-; -----------------------------------------------------------------------------
-; restore_page3
-; input:
-;    none
-; output:
-;    none
-; break:
-;    all
-; comment:
-;    none
-; -----------------------------------------------------------------------------
-			scope	restore_page3
-restore_page3::
-			; restore page3
-			ld		hl, 0x4000
-			ld		de, 0xC000
-			ld		bc, 0x4000
-			ldir
+			pop		hl
 			ret
 			endscope
 
@@ -285,26 +294,47 @@ restore_page3::
 ;       7        0xE000-0xFFFF   page2      0xE0
 ;
 ; -----------------------------------------------------------------------------
-			scope		simple64k_flash_write_8kb
+			scope	simple64k_flash_write_8kb
 simple64k_flash_write_8kb::
-			ld			a, [bank_back]
+			ld		a, [bank_back]
 			rrca
 			rrca
 			rrca
-			ld			h, a
-			ld			l, 0
+			ld		h, a
+			ld		l, 0
 
-			cp			a, 0x80				; goto page3 when 0x80 or 0xA0, goto page2 when others
-			jr			z, page3
-			cp			a, 0xA0
-			jr			z, page3
+			cp		a, 0x80				; goto page3 when 0x80 or 0xA0, goto page2 when others
+			jr		z, page3
+			cp		a, 0xA0
+			jr		z, page3
 page2:
-			call		simple64k_flash_write_8kb_on_page2
-			xor			a, a
+			call	simple64k_flash_write_8kb_on_page2
 			ret
 page3:
-			call		simple64k_flash_write_8kb_on_page3
-			xor			a, a
+			call	transfer_to_page3		; DI, SAVE HL
+			; Initialize stack pointer
+			ld		[p3_save_sp], sp
+			ld		sp, 0xFFFF
+			call	simple64k_flash_write_8kb_on_page3
+			jr		c, page3_error
+			; restore page3
+			ld		sp, [p3_save_sp]
+			ld		hl, 0x4000
+			ld		de, 0xC000
+			ld		bc, 0x4000
+			ldir
+			ei
+			or		a, a
+			ret
+page3_error:
+			; restore page3
+			ld		sp, [p3_save_sp]
+			ld		hl, 0x4000
+			ld		de, 0xC000
+			ld		bc, 0x4000
+			ldir
+			ei
+			scf
 			ret
 			endscope
 
@@ -317,7 +347,7 @@ page2_start::
 ; -----------------------------------------------------------------------------
 ; setup_slot_for_page2
 ; input:
-;    a ... target slot
+;    none
 ; output:
 ;    none
 ; break:
@@ -328,12 +358,7 @@ page2_start::
 			scope	setup_slot_for_page2
 setup_slot_for_page2::
 			; save target slot
-			ld		[p2_target_slot], a
-			; save RAMAD
-			ld		hl, [ramad0]
-			ld		[p2_ramad0_simple64k], hl
-			ld		hl, [ramad2]
-			ld		[p2_ramad2_simple64k], hl
+			ld		a, [target_slot]
 			; primary slot
 			and		a, 3						; 000000ff
 			ld		b, a
@@ -486,9 +511,14 @@ simple64k_flash_write_8kb_on_page2::
 			; Initialize stack pointer
 			ld		[p2_save_sp], sp
 			ld		sp, 0xBFFF
-			; Change slot
 			push	hl
-			call	setup_slot_for_page2	; SAVE DE
+			; Transfer write datas
+			ld		hl, 0x2000
+			ld		de, 0x8000
+			ld		bc, 0x2000
+			ldir
+			; Change slot
+			call	setup_slot_for_page2
 			pop		hl
 
 			ld		de, 0x8000				; source address
@@ -517,6 +547,7 @@ write_error:
 			pop		bc
 			call	restore_slot_for_page2
 			ld		sp, [p2_save_sp]
+			ei
 			scf
 			ret
 write_complete:
@@ -531,23 +562,14 @@ write_complete:
 
 			call	restore_slot_for_page2
 			ld		sp, [p2_save_sp]
+			ei
 			or			a, a					; Cf = 0
 			ret
 			endscope
 
-p2_target_slot::
-			db		0
 p2_save_sp::
 			dw		0
 p2_save_primary::
-			db		0
-p2_ramad0_simple64k::
-			db		0
-p2_ramad1_simple64k::
-			db		0
-p2_ramad2_simple64k::
-			db		0
-p2_ramad3_simple64k::
 			db		0
 page2_end::
 			org		transfer_to_page2_start + page2_end - page2_start
@@ -562,7 +584,7 @@ page3_start::
 ; -----------------------------------------------------------------------------
 ; setup_slot_for_page3
 ; input:
-;    a ... target slot
+;    none
 ; output:
 ;    none
 ; break:
@@ -573,7 +595,7 @@ page3_start::
 			scope	setup_slot_for_page3
 setup_slot_for_page3::
 			; save target slot
-			ld		[p3_target_slot], a
+			ld		a, [target_slot]
 			; primary slot
 			and		a, 3						; 000000ff
 			ld		b, a
@@ -624,14 +646,8 @@ restore_slot_for_page3::
 ; -----------------------------------------------------------------------------
 			scope	simple64k_flash_write_8kb_on_page3
 simple64k_flash_write_8kb_on_page3::
-			di
-			; Initialize stack pointer
-			ld		[p3_save_sp], sp
-			ld		sp, 0xFFFF
 			; Change slot
-			push	hl
-			call	setup_slot_for_page3	; SAVE DE
-			pop		hl
+			call	setup_slot_for_page3	; SAVE HL
 
 			ld		de, 0xC000				; source address
 			ld		bc, 0x2000				; transfer bytes
@@ -658,7 +674,6 @@ wait_for_write_complete:
 write_error:
 			pop		bc
 			call	restore_slot_for_page3
-			ld		sp, [p3_save_sp]
 			scf
 			ret
 write_complete:
@@ -671,25 +686,14 @@ write_complete:
 			or		a, c
 			jr		nz, loop_of_bc
 
-			call	restore_slot_for_page2
-			ld		sp, [p2_save_sp]
+			call	restore_slot_for_page3
 			or			a, a					; Cf = 0
 			ret
 			endscope
 
-p3_target_slot::
-			db		0
 p3_save_sp::
 			dw		0
 p3_save_primary::
-			db		0
-p3_ramad0_simple64k::
-			db		0
-p3_ramad1_simple64k::
-			db		0
-p3_ramad2_simple64k::
-			db		0
-p3_ramad3_simple64k::
 			db		0
 page3_end::
 			org		transfer_to_page3_start + page3_end - page3_start
