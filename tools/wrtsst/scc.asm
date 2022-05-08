@@ -112,8 +112,7 @@ not_scc:
 ; input:
 ;    a ..... Target slot
 ; output:
-;    e ..... Manufacture ID
-;    d ..... Device ID
+;    Zf .... 0: Error, 1: Success
 ; break:
 ;    all
 ; comment:
@@ -169,6 +168,7 @@ setup_slot_scc::
 			ret		nz
 			ld		a, [device_id]
 			call	get_device_name
+			xor		a, a
 			ret
 
 scc_flash_jump_table:

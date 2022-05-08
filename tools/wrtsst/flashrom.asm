@@ -34,9 +34,6 @@
 ; History
 ; May/3rd/2022  t.hara  First release
 ; -----------------------------------------------------------------------------
-MID_AMD			:= 0x01
-DID_AM29F040B	:= 0xA4
-
 MID_SST			:= 0xBF
 DID_SST39SF010A	:= 0xB5
 DID_SST39SF020A	:= 0xB6
@@ -54,17 +51,11 @@ DID_SST39SF040	:= 0xB7
 ; -----------------------------------------------------------------------------
 			scope	get_manufacture_name
 get_manufacture_name::
-			cp		a, MID_AMD
-			ld		de, s_amd
-			ret		z
 			cp		a, MID_SST
 			ld		de, s_sst
 			ret		z
 			ld		de, s_unknown
 			ret
-s_amd:
-			ds		"AMD"
-			db		0
 s_sst:
 			ds		"SST"
 			db		0
@@ -87,9 +78,6 @@ s_unknown::
 get_device_name::
 			ld		hl, 512
 			ld		[rom_size], hl
-			cp		a, DID_AM29F040B
-			ld		de, s_am29f040b
-			ret		z
 			cp		a, DID_SST39SF040
 			ld		de, s_sst39sf040
 			ret		z
@@ -110,9 +98,6 @@ get_device_name::
 			ld		[rom_size], hl
 			ld		de, s_unknown
 			ret
-s_am29f040b:
-			ds		"AM29F040B"
-			db		0
 s_sst39sf010a:
 			ds		"SST39SF010A"
 			db		0

@@ -133,7 +133,7 @@ is_slot_rc755::
 ; input:
 ;    a ..... Target slot
 ; output:
-;    none
+;    Zf .... 0: Error, 1: Success
 ; break:
 ;    all
 ; comment:
@@ -151,6 +151,7 @@ setup_slot_rc755::
 			; Setup
 			ld			hl, rc755_flash_jump_table
 			call		setup_flash_command
+			xor			a, a
 			ret
 
 rc755_flash_jump_table:
@@ -293,7 +294,7 @@ wait_l1:
 			endscope
 
 ; -----------------------------------------------------------------------------
-; scc_set_bank
+; rc755_set_bank
 ; input:
 ;    a ..... BANK ID
 ; output:
@@ -310,7 +311,7 @@ rc755_set_bank::
 			endscope
 
 ; -----------------------------------------------------------------------------
-; scc_get_start_bank
+; rc755_get_start_bank
 ; input:
 ;    hl ..... target size [KB]
 ; output:
@@ -328,7 +329,7 @@ rc755_get_start_bank::
 			endscope
 
 ; -----------------------------------------------------------------------------
-; scc_restore_bank0
+; rc755_restore_bank0
 ; input:
 ;    none
 ; output:

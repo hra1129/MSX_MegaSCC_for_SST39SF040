@@ -123,3 +123,66 @@ puthex_c::
 hex_characters:
 			ds		"0123456789ABCDEF"
 			endscope
+
+; -----------------------------------------------------------------------------
+; putdec
+; input:
+;    hl .... Target number
+; output:
+;    none
+; break:
+;    all
+; -----------------------------------------------------------------------------
+			scope	putdec
+putdec::
+			ld		bc, str
+			ld		de, 10000
+			call	count_sub
+			ld		[bc], a
+			inc		bc
+
+			ld		de, 1000
+			call	count_sub
+			ld		[bc], a
+			inc		bc
+
+			ld		de, 100
+			call	count_sub
+			ld		[bc], a
+			inc		bc
+
+			ld		de, 10
+			call	count_sub
+			ld		[bc], a
+			inc		bc
+
+			ld		de, 1
+			call	count_sub
+			ld		[bc], a
+
+			ld		hl, str
+			ld		a, '0'
+zero_skip:
+			cp		a, [hl]
+			jr		nz, zero_skip_exit
+			inc		hl
+			jr		zero_skip
+zero_skip_exit:
+			ex		de, hl
+			jp		puts
+
+count_sub:
+			xor		a, a			; Cf = 0, A = 0
+			ld		a, '0'
+l1:
+			sbc		hl, de
+			jr		c, s1
+			inc		a
+			jr		l1
+s1:
+			add		hl, de
+			ret
+str:
+			ds		"00000"
+			db		0
+			endscope

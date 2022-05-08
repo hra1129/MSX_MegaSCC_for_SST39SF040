@@ -144,7 +144,7 @@ not_detected:
 			jr		puts_and_exit
 
 title_message:
-			ds		"WRTSST [SST FlashROM Writer] v0.00\r\n"
+			ds		"WRTSST [SST FlashROM Writer] v1.00alpha\r\n"
 			ds		"Copyright (C)2022 HRA!\r\n"
 			db		0
 erase_message:
@@ -544,7 +544,7 @@ l2:
 			ret
 
 fname_message:
-			ds			"File name:"
+			ds			"FILE NAME     :"
 			db			0
 			endscope
 
@@ -658,6 +658,7 @@ detect_scc:
 			; It is confirmed that the specified slot is SCC.
 			ld			a, [target_slot]
 			call		setup_slot_scc
+			ret			nz
 			xor			a, a
 			ld			[rom_type], a
 			jp			common_process
@@ -710,6 +711,20 @@ common_process:
 			ld			d, [hl]
 			call		puts
 
+			ld			de, file_size_message
+			call		puts
+			ld			hl, [file_size]
+			call		putdec
+			ld			de, kb_message
+			call		puts
+
+			ld			de, rom_size_message
+			call		puts
+			ld			hl, [rom_size]
+			call		putdec
+			ld			de, kb_message
+			call		puts
+
 			xor			a, a
 			ret
 
@@ -721,6 +736,15 @@ device_id_message:
 			db			0
 cartridge_type_message:
 			ds			"CARTRIDGE TYPE:"
+			db			0
+file_size_message:
+			ds			"FILE SIZE     :"
+			db			0
+rom_size_message:
+			ds			"ROM SIZE      :"
+			db			0
+kb_message:
+			ds			"KB\r\n"
 			db			0
 mega_scc_message:
 			ds			"MegaSCC\r\n"
