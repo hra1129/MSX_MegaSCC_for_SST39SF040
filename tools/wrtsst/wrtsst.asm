@@ -157,7 +157,7 @@ not_detected:
 			jr		puts_and_exit
 
 title_message:
-			ds		"WRTSST [SST FlashROM Writer] v1.00beta\r\n"
+			ds		"WRTSST [SST FlashROM Writer] v1.00\r\n"
 			ds		"Copyright (C)2022 HRA!\r\n\r\n"
 			db		0
 block_message:
@@ -214,10 +214,6 @@ l1:
 l2:
 			inc		b
 			djnz	l1
-			; If no file name is specified, it ends up displaying the usage.
-			ld		a, [fcb_fname]
-			cp		a, ' '
-			jp		z, usage
 			ret
 
 option:
@@ -227,10 +223,11 @@ option:
 			jp		z, option_s
 			cp		a, 'A'
 			jp		z, option_a
+			cp		a, 'T'
+			jp		z, option_t
 			jp		usage
 option_s:
 			call	get_one
-			jp		z, usage
 			; The slot number is 0 to 3. If it is out of range, the system displays the usage and exits.
 			sub		a, '0'
 			cp		a, 4
@@ -244,7 +241,6 @@ option_s:
 			dec		b
 			jp		z, usage
 			call	get_one
-			jp		z, usage
 			; The expantion slot number is 0 to 3. If it is out of range, the system displays the usage and exits.
 			sub		a, '0'
 			cp		a, 4
@@ -283,6 +279,10 @@ fl1:
 
 			dec		c
 			jr		nz, fl1
+
+			call	get_one
+			cp		a, '.'
+			jp		nz, usage
 file_ext:
 			inc		b
 			dec		b
@@ -307,16 +307,23 @@ fl2:
 
 option_a:
 			call	get_one
-			jp		z, usage
 			sub		a, '0'
 			cp		a, 10
 			jp		nc, usage
 			ld		[target_block_for_simple64k], a
-
+return_to_arg_check:
 			inc		b
 			dec		b
 			ret		z
 			jp		l1
+
+option_t:
+			call	get_one
+			sub		a, '0'
+			cp		a, 3
+			jp		nc, usage
+			ld		[rom_type], a
+			jr		return_to_arg_check
 			endscope
 
 ; -----------------------------------------------------------------------------
@@ -474,11 +481,19 @@ usage::
 			jp		BDOS
 
 usage_message:
-			ds		"Usage> WRTSST [/Sx][/Sx-y] file_name.rom\r\n"
-			ds		"  /Sx ........ Rewrite in SLOT#x.\r\n"
-			ds		"  /Sx-y ...... Rewrite in SLOT#x-y.\r\n"
-			ds		"  /S omitted . Auto detect.\r\n"
-			ds		"  /At ........ Set target block#t for Simple64K.\r\n"
+			ds		"Usage> WRTSST [options] file_name.rom\r\n"
+			ds		" [options]\r\n"
+			ds		"  /Sx .... Set target slot for SLOT#x.\r\n"
+			ds		"  /Sx-y .. Set target slot for SLOT#x-y.\r\n"
+			ds		"  /Aa .... Set target address for S64K.\r\n"
+			ds		"    /A0 .. 0000h\r\n"
+			ds		"    /A1 .. 2000h\r\n"
+			ds		"     :\r\n"
+			ds		"    /A7 .. E000h\r\n"
+			ds		"  /Tt .... Specify cartridge type.\r\n"
+			ds		"    /T0 .. MegaSCC\r\n"
+			ds		"    /T1 .. ESE-RC755\r\n"
+			ds		"    /T2 .. Simple64k\r\n"
 			db		0
 			endscope
 
@@ -673,14 +688,29 @@ restore_dos_slot::
 ; -----------------------------------------------------------------------------
 			scope		detect_target
 detect_target::
+			ld			a, [rom_type]
+			inc			a
+			jr			z, check_all
+			dec			a
+			jr			z, check_megascc
+			dec			a
+			jr			z, check_rc755
+			jr			check_simple64k
+check_all:
+			call		check_megascc
+			call		check_rc755
+			jr			check_simple64k
+check_megascc:
 			ld			a, [target_slot]
 			call		is_slot_scc
 			jp			z, detect_scc
-
+			ret
+check_rc755:
 			ld			a, [target_slot]
 			call		is_slot_rc755
 			jp			z, detect_rc755
-
+			ret
+check_simple64k:
 			ld			a, [target_slot]
 			call		is_slot_simple64k
 			jp			z, detect_simple64k
@@ -809,7 +839,7 @@ manufacture_id::
 device_id::
 			db		0
 rom_type::
-			db		0					; 0: MegaSCC, 1: RC755, 2: Simple64K
+			db		255					; 0: MegaSCC, 1: RC755, 2: Simple64K
 progress_max::
 			db		0
 bank_back:
