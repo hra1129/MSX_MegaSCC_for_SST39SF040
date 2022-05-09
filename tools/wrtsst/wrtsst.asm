@@ -88,11 +88,22 @@ entry_point::
 
 			ld		de, ok_message
 			call	puts
-
-			call	flash_get_start_bank
-			ld		c, a					; bank#
+			ld		de, block_message
+			call	puts
 
 			ld		hl, [file_size]
+			push	hl
+			call	flash_get_start_bank
+			ld		c, a					; bank#
+			push	bc
+			ld		l, a
+			ld		h, 0
+			call	putdec
+			call	puts_crlf
+			pop		bc
+			pop		hl
+			push	hl
+
 			srl		h
 			rr		l
 			srl		h
@@ -102,6 +113,8 @@ entry_point::
 			ld		b, l					; MAX 64 = 512KB
 			ld		a, l
 			ld		[progress_max], a
+			pop		hl
+
 block_write_loop:
 			ld		a, c
 			push	bc
@@ -144,8 +157,11 @@ not_detected:
 			jr		puts_and_exit
 
 title_message:
-			ds		"WRTSST [SST FlashROM Writer] v1.00alpha\r\n"
-			ds		"Copyright (C)2022 HRA!\r\n"
+			ds		"WRTSST [SST FlashROM Writer] v1.00beta\r\n"
+			ds		"Copyright (C)2022 HRA!\r\n\r\n"
+			db		0
+block_message:
+			ds		"BLOCK#        :"
 			db		0
 erase_message:
 			ds		"ERASE ROM ... "
@@ -296,6 +312,10 @@ option_a:
 			cp		a, 10
 			jp		nc, usage
 			ld		[target_block_for_simple64k], a
+
+			inc		b
+			dec		b
+			ret		z
 			jp		l1
 			endscope
 

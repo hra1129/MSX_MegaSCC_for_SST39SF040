@@ -52,8 +52,7 @@ PPI_PRIMARY_SLOT	:= 0xA8
 ; break:
 ;    all
 ; comment:
-;    Change page2 to the target slot and do not put it back.
-;    Return in DI state.
+;    This is where all of page0-3 are called in the RAM slots.
 ; -----------------------------------------------------------------------------
 			scope	is_slot_simple64k
 is_slot_simple64k::
@@ -70,33 +69,17 @@ is_slot_simple64k::
 
 			; Is ROM, Page1 and Page2?
 			ld		hl, 0x4000
+			ld		de, 0x0100
+			ld		b, 0x80
+l1:
 			call	is_rom
 			jr		z, not_simple64k
-			ld		hl, 0x5000
-			call	is_rom
-			jr		z, not_simple64k
-			ld		hl, 0x6000
-			call	is_rom
-			jr		z, not_simple64k
-			ld		hl, 0x7000
-			call	is_rom
-			jr		z, not_simple64k
-			ld		hl, 0x8000
-			call	is_rom
-			jr		z, not_simple64k
-			ld		hl, 0x9000
-			call	is_rom
-			jr		z, not_simple64k
-			ld		hl, 0xA000
-			call	is_rom
-			jr		z, not_simple64k
-			ld		hl, 0xB000
-			call	is_rom
-			jr		z, not_simple64k
+			add		hl, de
+			djnz	l1
 
-			call	restore_dos_slot
+			call	restore_dos_slot			; EI
 			call	transfer_to_page2
-			call	get_id_simple_64k
+			call	simple64k_p2_get_id
 
 			ld		a, [manufacture_id]
 			call	get_manufacture_name
@@ -130,17 +113,17 @@ setup_slot_simple64k::
 			ld		[rom_size], a			; 64KB
 
 			; Setup
-			ld			hl, simple64k_flash_jump_table
-			call		setup_flash_command
+			ld		hl, simple64k_flash_jump_table
+			call	setup_flash_command
 
 			xor		a, a
 			ret
 
 simple64k_flash_jump_table:
-			jp			simple64k_flash_chip_erase
-			jp			simple64k_flash_write_8kb
-			jp			simple64k_set_bank
-			jp			simple64k_get_start_bank
+			jp		simple64k_p2_flash_chip_erase
+			jp		simple64k_flash_write_8kb
+			jp		simple64k_set_bank
+			jp		simple64k_get_start_bank
 			endscope
 
 ; -----------------------------------------------------------------------------
@@ -154,9 +137,9 @@ simple64k_flash_jump_table:
 ; comment:
 ;
 ; -----------------------------------------------------------------------------
-			scope		simple64k_set_bank
+			scope	simple64k_set_bank
 simple64k_set_bank::
-			ld			[bank_back], a
+			ld		[bank_back], a
 			ret
 			endscope
 
@@ -172,48 +155,50 @@ simple64k_set_bank::
 ; comment:
 ;
 ; -----------------------------------------------------------------------------
-			scope		simple64k_get_start_bank
+			scope	simple64k_get_start_bank
 simple64k_get_start_bank::
-			ld			a, h
-			or			a, a
+			ld		a, h
+			or		a, a
 			scf
-			ret			nz			; too BIG
+			ret		nz			; too BIG
 
-			ld			a, l
-			cp			a, 64
+			ld		a, l
+			cp		a, 65
 			ccf
-			ret			c			; too BIG
+			ret		c			; too BIG
 
-			ld			a, [target_block_for_simple64k]
-			inc			a
-			jr			z, target_address_request
+			ld		a, [target_block_for_simple64k]
+			inc		a
+			jr		nz, target_address_request
 
-			ld			a, l
-			cp			a, 33
-			jr			c, file_under_32kb
+			ld		a, l
+			cp		a, 33
+			jr		c, file_under_32kb
 
 file_33kb_to_64kb:
-			xor			a, a		; 0x0000-
+			xor		a, a		; 0x0000-
+			ld		[target_block_for_simple64k], a
 			ret
 file_under_32kb:
-			ld			a, 2		; 0x4000-
-			or			a, a
+			ld		a, 2		; 0x4000-
+			ld		[target_block_for_simple64k], a
+			or		a, a
 			ret
 
 target_address_request:
-			dec			a
-			ld			b, a
+			dec		a
+			ld		b, a
 
-			ld			a, l
+			ld		a, l
 			rrca
 			rrca
 			rrca
-			add			a, b
-			cp			a, 8
+			add		a, b
+			cp		a, 9
 			ccf
-			ret			c			; too BIG
+			ret		c			; too BIG
 
-			ld			a, b
+			ld		a, b
 			ret
 			endscope
 
@@ -226,7 +211,8 @@ target_address_request:
 ; break:
 ;    all
 ; comment:
-;    none
+;    This is where all of page0-3 are called in the RAM slots.
+;    Routines that run on Page2 are transferred to Page2.
 ; -----------------------------------------------------------------------------
 			scope	transfer_to_page2
 transfer_to_page2::
@@ -235,40 +221,6 @@ transfer_to_page2::
 			ld		de, page2_start
 			ld		bc, page2_end - page2_start
 			ldir
-			ret
-			endscope
-
-; -----------------------------------------------------------------------------
-; transfer_to_page3
-; input:
-;    none
-; output:
-;    none
-; break:
-;    all
-; comment:
-;    none
-; -----------------------------------------------------------------------------
-			scope	transfer_to_page3
-transfer_to_page3::
-			di
-			push	hl
-			; backup page3
-			ld		hl, 0xC000
-			ld		de, 0x4000
-			ld		bc, 0x4000
-			ldir
-			; transfer subroutines for page3
-			ld		hl, transfer_to_page3_start
-			ld		de, page3_start
-			ld		bc, page3_end - page3_start
-			ldir
-			; copy write data to page3
-			ld		hl, 0x2000
-			ld		de, 0xC000
-			ld		bc, 0x2000
-			ldir
-			pop		hl
 			ret
 			endscope
 
@@ -297,6 +249,7 @@ transfer_to_page3::
 			scope	simple64k_flash_write_8kb
 simple64k_flash_write_8kb::
 			ld		a, [bank_back]
+			; HL = A * 0x2000
 			rrca
 			rrca
 			rrca
@@ -308,34 +261,43 @@ simple64k_flash_write_8kb::
 			cp		a, 0xA0
 			jr		z, page3
 page2:
-			call	simple64k_flash_write_8kb_on_page2
+			call	simple64k_p2_flash_write_8kb
 			ret
 page3:
-			call	transfer_to_page3		; DI, SAVE HL
+			di
+			exx
+			; backup page3 to page1
+			ld		hl, 0xC000
+			ld		de, 0x4000
+			ld		bc, 0x4000
+			ldir
+			; transfer subroutines for page3
+			ld		hl, transfer_to_page3_start
+			ld		de, page3_start
+			ld		bc, page3_end - page3_start
+			ldir
+			; copy write data to page3
+			ld		hl, 0x2000
+			ld		de, 0xC000
+			ld		bc, 0x2000
+			ldir
+			exx
 			; Initialize stack pointer
-			ld		[p3_save_sp], sp
+			ld		[save_sp], sp
 			ld		sp, 0xFFFF
-			call	simple64k_flash_write_8kb_on_page3
-			jr		c, page3_error
-			; restore page3
-			ld		sp, [p3_save_sp]
+			; Initialize stack pointer
+			call	simple64k_p3_flash_write_8kb
+			; restore stack pointer
+			ld		sp, [save_sp]
+			; restore page3 from page1
 			ld		hl, 0x4000
 			ld		de, 0xC000
-			ld		bc, 0x4000
+			ld		bc, 0x3FFF			; Reject Extended Slot Register
 			ldir
 			ei
-			or		a, a
 			ret
-page3_error:
-			; restore page3
-			ld		sp, [p3_save_sp]
-			ld		hl, 0x4000
-			ld		de, 0xC000
-			ld		bc, 0x4000
-			ldir
-			ei
-			scf
-			ret
+save_sp:
+			dw		0
 			endscope
 
 ; -----------------------------------------------------------------------------
@@ -345,7 +307,7 @@ transfer_to_page2_start::
 			org		0xA000
 page2_start::
 ; -----------------------------------------------------------------------------
-; setup_slot_for_page2
+; simple64k_p2_setup_slot
 ; input:
 ;    none
 ; output:
@@ -355,8 +317,8 @@ page2_start::
 ; comment:
 ;    none
 ; -----------------------------------------------------------------------------
-			scope	setup_slot_for_page2
-setup_slot_for_page2::
+			scope	simple64k_p2_setup_slot
+simple64k_p2_setup_slot::
 			; save target slot
 			ld		a, [target_slot]
 			; primary slot
@@ -380,7 +342,7 @@ setup_slot_for_page2::
 			endscope
 
 ; -----------------------------------------------------------------------------
-; restore_slot_for_page2
+; simple64k_p2_restore_slot
 ; input:
 ;    none
 ; output:
@@ -390,8 +352,8 @@ setup_slot_for_page2::
 ; comment:
 ;    none
 ; -----------------------------------------------------------------------------
-			scope	restore_slot_for_page2
-restore_slot_for_page2::
+			scope	simple64k_p2_restore_slot
+simple64k_p2_restore_slot::
 			; restore primary slot
 			ld		a, [p2_save_primary]
 			out		[PPI_PRIMARY_SLOT], a
@@ -410,14 +372,14 @@ restore_slot_for_page2::
 ; comment:
 ;    none
 ; -----------------------------------------------------------------------------
-			scope	get_id_simple64k
-get_id_simple_64k::
+			scope	simple64k_p2_get_id
+simple64k_p2_get_id::
 			di
 			; Initialize stack pointer
 			ld		[p2_save_sp], sp
 			ld		sp, 0xBFFF
 			; Change slot
-			call	setup_slot_for_page2
+			call	simple64k_p2_setup_slot
 			; Get Manufacture ID
 			ld		hl, 0x0000
 			ld		a, 0xAA
@@ -437,7 +399,7 @@ get_id_simple_64k::
 			ld		a, 0xF0
 			ld		[SIMPLE_CMD_5555], a
 			; Restore slot
-			call	restore_slot_for_page2
+			call	simple64k_p2_restore_slot
 			ld		[manufacture_id], de
 			; Restore stack pointer
 			ld		sp, [p2_save_sp]
@@ -446,7 +408,7 @@ get_id_simple_64k::
 			endscope
 
 ; -----------------------------------------------------------------------------
-; simple64k_flash_chip_erase
+; simple64k_p2_flash_chip_erase
 ; input:
 ;    none
 ; output:
@@ -456,14 +418,14 @@ get_id_simple_64k::
 ; comment:
 ;    none
 ; -----------------------------------------------------------------------------
-			scope	simple64k_flash_chip_erase
-simple64k_flash_chip_erase::
+			scope	simple64k_p2_flash_chip_erase
+simple64k_p2_flash_chip_erase::
 			di
 			; Initialize stack pointer
 			ld		[p2_save_sp], sp
 			ld		sp, 0xBFFF
 			; Change slot
-			call	setup_slot_for_page2
+			call	simple64k_p2_setup_slot
 			; Get Manufacture ID
 			ld		hl, 0x0000
 			ld		a, 0xAA
@@ -479,8 +441,7 @@ simple64k_flash_chip_erase::
 			ld		a, 0x10
 			ld		[SIMPLE_CMD_5555], a
 			; Restore slot
-			call	restore_slot_for_page2
-			ld		[manufacture_id], de
+			call	simple64k_p2_restore_slot
 			; Restore stack pointer
 			ld		sp, [p2_save_sp]
 			; Wait
@@ -495,7 +456,7 @@ wait_l1:
 			endscope
 
 ; -----------------------------------------------------------------------------
-; simple64k_flash_write_8kb_page2
+; simple64k_p2_flash_write_8kb
 ; input:
 ;    HL .... Target address
 ; output:
@@ -505,8 +466,8 @@ wait_l1:
 ; comment:
 ;    Copies the contents of 0x2000-0x3FFF to the area appearing in 0x6000-0x7FFF.
 ; -----------------------------------------------------------------------------
-			scope	simple64k_flash_write_8kb_on_page2
-simple64k_flash_write_8kb_on_page2::
+			scope	simple64k_p2_flash_write_8kb
+simple64k_p2_flash_write_8kb::
 			di
 			; Initialize stack pointer
 			ld		[p2_save_sp], sp
@@ -518,7 +479,7 @@ simple64k_flash_write_8kb_on_page2::
 			ld		bc, 0x2000
 			ldir
 			; Change slot
-			call	setup_slot_for_page2
+			call	simple64k_p2_setup_slot
 			pop		hl
 
 			ld		de, 0x8000				; source address
@@ -545,7 +506,7 @@ wait_for_write_complete:
 			jr		nz, wait_for_write_complete
 write_error:
 			pop		bc
-			call	restore_slot_for_page2
+			call	simple64k_p2_restore_slot
 			ld		sp, [p2_save_sp]
 			ei
 			scf
@@ -560,10 +521,10 @@ write_complete:
 			or		a, c
 			jr		nz, loop_of_bc
 
-			call	restore_slot_for_page2
+			call	simple64k_p2_restore_slot
 			ld		sp, [p2_save_sp]
 			ei
-			or			a, a					; Cf = 0
+			or		a, a					; Cf = 0
 			ret
 			endscope
 
@@ -582,7 +543,7 @@ transfer_to_page3_start::
 			org		0xE000
 page3_start::
 ; -----------------------------------------------------------------------------
-; setup_slot_for_page3
+; simple64k_p3_setup_slot
 ; input:
 ;    none
 ; output:
@@ -592,8 +553,8 @@ page3_start::
 ; comment:
 ;    none
 ; -----------------------------------------------------------------------------
-			scope	setup_slot_for_page3
-setup_slot_for_page3::
+			scope	simple64k_p3_setup_slot
+simple64k_p3_setup_slot::
 			; save target slot
 			ld		a, [target_slot]
 			; primary slot
@@ -615,7 +576,7 @@ setup_slot_for_page3::
 			endscope
 
 ; -----------------------------------------------------------------------------
-; restore_slot_for_page3
+; simple64k_p3_restore_slot
 ; input:
 ;    none
 ; output:
@@ -625,8 +586,8 @@ setup_slot_for_page3::
 ; comment:
 ;    none
 ; -----------------------------------------------------------------------------
-			scope	restore_slot_for_page3
-restore_slot_for_page3::
+			scope	simple64k_p3_restore_slot
+simple64k_p3_restore_slot::
 			; restore primary slot
 			ld		a, [p3_save_primary]
 			out		[PPI_PRIMARY_SLOT], a
@@ -644,10 +605,10 @@ restore_slot_for_page3::
 ; comment:
 ;    Copies the contents of 0x2000-0x3FFF to the area appearing in 0x6000-0x7FFF.
 ; -----------------------------------------------------------------------------
-			scope	simple64k_flash_write_8kb_on_page3
-simple64k_flash_write_8kb_on_page3::
+			scope	simple64k_p3_flash_write_8kb
+simple64k_p3_flash_write_8kb::
 			; Change slot
-			call	setup_slot_for_page3	; SAVE HL
+			call	simple64k_p3_setup_slot	; SAVE HL
 
 			ld		de, 0xC000				; source address
 			ld		bc, 0x2000				; transfer bytes
@@ -673,7 +634,7 @@ wait_for_write_complete:
 			jr		nz, wait_for_write_complete
 write_error:
 			pop		bc
-			call	restore_slot_for_page3
+			call	simple64k_p3_restore_slot
 			scf
 			ret
 write_complete:
@@ -686,13 +647,11 @@ write_complete:
 			or		a, c
 			jr		nz, loop_of_bc
 
-			call	restore_slot_for_page3
-			or			a, a					; Cf = 0
+			call	simple64k_p3_restore_slot
+			or		a, a					; Cf = 0
 			ret
 			endscope
 
-p3_save_sp::
-			dw		0
 p3_save_primary::
 			db		0
 page3_end::
