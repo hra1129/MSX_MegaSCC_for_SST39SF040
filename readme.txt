@@ -19,9 +19,5 @@ How to build MegaSCC with SST39SF040 and a set of tools
 	which is easier to obtain compared to AM29F040B, and I will summarize 
 	it here.
 
-!!!! WARNING !!!!
-	‚±‚Ìì‹Æ‚ÍAŒ»İŒŸØ’†‚Å‚·B
-	This work is currently being verified.
-
 -------------------------------------------------------------------------------
-May/2nd/2022  HRA!
+May/10th/2022  HRA!
