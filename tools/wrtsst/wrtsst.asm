@@ -43,6 +43,7 @@ RAMAD0		:= 0xF341
 RAMAD1		:= 0xF342
 RAMAD2		:= 0xF343
 RAMAD3		:= 0xF344
+CALSLT		:= 0x001C
 ENASLT		:= 0x0024		; A: SLOT#, H[7:6]: PAGE#
 BDOS		:= 0x0005
 _TERM0		:= 0x00
@@ -148,7 +149,7 @@ block_write_loop:
 puts_and_exit:
 			call	puts
 
-			call	restore_dos_slot
+			call	flash_finish
 			ld		c, _TERM0
 			jp		BDOS
 
@@ -157,7 +158,7 @@ not_detected:
 			jr		puts_and_exit
 
 title_message:
-			ds		"WRTSST [SST FlashROM Writer] v1.00\r\n"
+			ds		"WRTSST [SST FlashROM Writer] v1.01\r\n"
 			ds		"Copyright (C)2022 HRA!\r\n\r\n"
 			db		0
 block_message:
@@ -219,6 +220,7 @@ l2:
 option:
 			call	get_one
 			jp		z, usage
+
 			cp		a, 'S'
 			jp		z, option_s
 			cp		a, 'A'
@@ -698,7 +700,9 @@ detect_target::
 			jr			check_simple64k
 check_all:
 			call		check_megascc
+			ret			z
 			call		check_rc755
+			ret			z
 			jr			check_simple64k
 check_megascc:
 			ld			a, [target_slot]

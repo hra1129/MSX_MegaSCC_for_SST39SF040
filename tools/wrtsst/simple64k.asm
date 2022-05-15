@@ -124,6 +124,7 @@ simple64k_flash_jump_table:
 			jp		simple64k_flash_write_8kb
 			jp		simple64k_set_bank
 			jp		simple64k_get_start_bank
+			jp		simple64k_finish
 			endscope
 
 ; -----------------------------------------------------------------------------
@@ -199,6 +200,22 @@ target_address_request:
 			ret		c			; too BIG
 
 			ld		a, b
+			ret
+			endscope
+
+; -----------------------------------------------------------------------------
+; simple64k_finish
+; input:
+;    none
+; output:
+;    none
+; break:
+;    none
+; comment:
+;
+; -----------------------------------------------------------------------------
+			scope	simple64k_finish
+simple64k_finish::
 			ret
 			endscope
 

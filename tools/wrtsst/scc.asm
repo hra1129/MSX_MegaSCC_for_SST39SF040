@@ -176,6 +176,7 @@ scc_flash_jump_table:
 			jp		scc_flash_write_8kb
 			jp		scc_set_bank
 			jp		scc_get_start_bank
+			jp		scc_finish
 			endscope
 
 ; -----------------------------------------------------------------------------
@@ -356,4 +357,38 @@ scc_restore_bank::
 			ld		a, [bank_back]
 			ld		[SCC_BANK0_SEL], a
 			ret
+			endscope
+
+; -----------------------------------------------------------------------------
+; scc_finish
+; input:
+;    none
+; output:
+;    none
+; break:
+;    a, f
+; comment:
+;
+; -----------------------------------------------------------------------------
+			scope	scc_finish
+scc_finish::
+			; Change to target slot on page1
+			ld		a, [target_slot]
+			ld		h, 0x40
+			call	ENASLT					; DI
+			; Change to target slot on page2
+			ld		a, [target_slot]
+			ld		h, 0x80
+			call	ENASLT					; DI
+
+			xor		a, a
+			ld		[SCC_BANK0_SEL], a
+			inc		a
+			ld		[SCC_BANK1_SEL], a
+			inc		a
+			ld		[SCC_BANK2_SEL], a
+			inc		a
+			ld		[SCC_BANK3_SEL], a
+
+			jp		restore_dos_slot
 			endscope

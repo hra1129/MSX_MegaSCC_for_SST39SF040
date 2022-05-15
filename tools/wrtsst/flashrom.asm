@@ -158,4 +158,6 @@ flash_set_bank::
 			jp		0
 flash_get_start_bank::
 			jp		0
+flash_finish::
+			jp		0
 jump_table_end:

@@ -159,6 +159,7 @@ rc755_flash_jump_table:
 			jp			rc755_flash_write_8kb
 			jp			rc755_set_bank
 			jp			rc755_get_start_bank
+			jp			rc755_finish
 			endscope
 
 ; -----------------------------------------------------------------------------
@@ -344,4 +345,36 @@ rc755_restore_bank::
 			ld			a, [bank_back]
 			ld			[RC755_BANK1_SEL], a
 			ret
+			endscope
+
+; -----------------------------------------------------------------------------
+; rc755_finish
+; input:
+;    none
+; output:
+;    none
+; break:
+;    all
+; comment:
+;
+; -----------------------------------------------------------------------------
+			scope	rc755_finish
+rc755_finish::
+			; Change to target slot on page1
+			ld			a, [target_slot]
+			ld			h, 0x40
+			call		ENASLT					; DI
+			; Change to target slot on page2
+			ld			a, [target_slot]
+			ld			h, 0x80
+			call		ENASLT					; DI
+
+			ld		a, 3
+			ld		[RC755_BANK3_SEL], a
+			dec		a
+			ld		[RC755_BANK2_SEL], a
+			dec		a
+			ld		[RC755_BANK1_SEL], a
+
+			jp		restore_dos_slot
 			endscope
