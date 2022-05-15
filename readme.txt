@@ -19,9 +19,21 @@ How to build MegaSCC with SST39SF040 and a set of tools
 	which is easier to obtain compared to AM29F040B, and I will summarize 
 	it here.
 
+	作り方
+	https://github.com/hra1129/MSX_MegaSCC_for_SST39SF040/blob/main/diagram/MegaSCC_SST_Ver.pdf
+
+	コナミ MSXカートリッジの開け方
+	https://hra1129.github.io/hardware/sdsnacher/body.html
+
 2. Link
 	きんのじ(@v9938)さんによる書き込みツールや、互換基板など。
 	https://github.com/v9938/MSX_MEGASCC-SST_Ver
 
+	きんのじ(@v9938)さんの Simple64K
+	https://github.com/v9938/MSX_SimpleCartridge
+
+	きんのじ(@v9938)さんの ESE-RC755
+	https://github.com/v9938/ESE_RC755
+
 -------------------------------------------------------------------------------
-May/12nd/2022  HRA!
+May/16th/2022  HRA!
