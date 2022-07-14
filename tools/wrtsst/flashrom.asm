@@ -151,13 +151,23 @@ is_rom::
 ; -----------------------------------------------------------------------------
 jump_table:
 flash_chip_erase::
-			jp		0
+			ret
+			ret
+			ret
 flash_write_8kb::
-			jp		0
+			ret
+			ret
+			ret
 flash_set_bank::
-			jp		0
+			ret
+			ret
+			ret
 flash_get_start_bank::
-			jp		0
+			ret
+			ret
+			ret
 flash_finish::
-			jp		0
+			ret
+			ret
+			ret
 jump_table_end:

@@ -147,9 +147,12 @@ block_write_loop:
 
 			ld		de, completed_message
 puts_and_exit:
+			push	de
+			call	restore_dos_slot
+			call	flash_finish
+			pop		de
 			call	puts
 
-			call	flash_finish
 			ld		c, _TERM0
 			jp		BDOS
 
