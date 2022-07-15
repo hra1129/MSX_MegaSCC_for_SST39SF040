@@ -618,12 +618,15 @@ check_target_slot::
 
 			ld			hl, EXPTBL
 l1:
+			ld			a, l
+			sub			a, EXPTBL & 255
+			ld			b, a
 			ld			a, [hl]
+			and			a, 0x80
+			or			a, b
 			or			a, a
 			jp			m, expanded_slot
 basic_slot:
-			ld			a, l
-			sub			a, EXPTBL & 255
 			ld			[target_slot], a
 			push		hl
 			call		detect_target
