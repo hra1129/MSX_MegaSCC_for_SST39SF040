@@ -56,6 +56,8 @@ _RDBLK		:= 0x27
 EXPTBL		:= 0xFCC1
 JIFFY		:= 0xFC9E
 
+NEW_DTA		:= 0x2000		; page0 の後半に 8KB の読み込み用エリアを確保
+
 ; -----------------------------------------------------------------------------
 ;	Entry Point
 ; -----------------------------------------------------------------------------
@@ -75,6 +77,7 @@ entry_point::
 			call	puts_crlf
 
 			call	file_open
+			jp		z, puts_and_exit
 
 			call	check_target_slot
 			jp		nz, not_detected
@@ -123,6 +126,12 @@ block_write_loop:
 
 			ld		a, b
 			call	display_progress_bar
+			; clear DTA
+			ld		hl, NEW_DTA
+			ld		de, NEW_DTA + 1
+			ld		bc, 8192 - 1
+			ld		[hl], 0xFF
+			ldir
 			; read one block (8KB)
 			ld		c, _RDBLK
 			ld		de, fcb
@@ -161,7 +170,7 @@ not_detected:
 			jr		puts_and_exit
 
 title_message:
-			ds		"WRTSST [SST FlashROM Writer] v1.01\r\n"
+			ds		"WRTSST [SST FlashROM Writer] v1.02\r\n"
 			ds		"Copyright (C)2022 HRA!\r\n\r\n"
 			db		0
 block_message:
@@ -402,7 +411,8 @@ progress:
 ; input:
 ;    none
 ; output:
-;    none
+;    Z .... 0: success, 1: failed
+;    DE ... error message (when Zf = 1)
 ; break:
 ;    all
 ; comment:
@@ -418,48 +428,51 @@ file_open::
 			jr		nz, put_error
 
 			; Check file size
-			ld		hl, [fcb_filsiz]
-			ld		a, h
-			and		a, 0x1F
-			or		a, l
-			ld		de, is_not_8kb_message
-			jr		nz, put_error
-
-			ld		a, h
-			ld		hl, [fcb_filsiz + 2]
-			or		a, h
-			or		a, l
+			ld		hl, fcb_filsiz
+			ld		a, [hl]
+			ld		b, a
+			inc		hl
+			or		a, [hl]
+			inc		hl
+			or		a, [hl]
+			inc		hl
+			or		a, [hl]
 			ld		de, is_zero_message
 			jr		z, put_error
 
 			; calc KB
+			ld		a, [fcb_filsiz + 1]
+			and		a, 0x1F
+			or		a, b
+			ld		de, 0
+			jr		z, is_multiple_8kb
+			ld		e, 8
+is_multiple_8kb:
 			ld		hl, [fcb_filsiz + 1]
 			srl		h
 			rr		l
 			srl		h
 			rr		l
+			add		hl, de
 			ld		[file_size], hl
 
 			; set DTA
 			ld		c, _SETDTA
-			ld		de, 0x2000
+			ld		de, NEW_DTA
 			call	BDOS
 
 			; set record size
 			ld		hl, 1024
 			ld		[fcb_s2], hl
+			inc		l					; Zf = 0
 			ret
 
 put_error:
-			call	puts
-			or		a, a
+			xor		a, a				; Zf = 1
 			ret
 
 cannot_open_message:
 			ds		"Cannot open file.\r\n"
-			db		0
-is_not_8kb_message:
-			ds		"The file size is not a multiple of 8KB.\r\n"
 			db		0
 is_zero_message:
 			ds		"File is empty.\r\n"
