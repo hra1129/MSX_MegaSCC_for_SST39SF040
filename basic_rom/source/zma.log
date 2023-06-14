@@ -1,0 +1,71 @@
+Z80 Macro Assembler ZMA v1.0.15
+=====================================================
+Programmed by t.hara
+
+<< code >>
+[	DB 0XFE]
+000000: fe
+
+[	DW START_ADDRESS]
+000001: 00 c0
+
+[	DW END_ADDRESS]
+000003: 24 c0
+
+[	DW START_ADDRESS]
+000005: 00 c0
+
+[	ORG 0XC000]
+	code address: 0x00c000
+
+[START_ADDRESS ::]
+	global label address: 0x00c000
+
+[	LD HL , 0X8000] Z80:11cyc, R800:3cyc
+00c000: 21 00 80
+
+[	LD DE , 0X8001] Z80:11cyc, R800:3cyc
+00c003: 11 01 80
+
+[	LD BC , 32 - 1] Z80:11cyc, R800:3cyc
+00c006: 01 1f 00
+
+[	LD [ HL ] , 0] Z80:11cyc, R800:5cyc
+00c009: 36 00
+
+[	LDIR] Z80:23cyc(BC!=0), 18cyc(BC=0), R800:?cyc(BC!=0), 7cyc(BC=0)
+00c00b: ed b0
+
+[	LD HL , 65 | ( 66 << 8 )] Z80:11cyc, R800:3cyc
+00c00d: 21 41 42
+
+[	LD [ 0X8000 ] , HL] Z80:17cyc, R800:7cyc
+00c010: 22 00 80
+
+[	LD HL , 0X8020] Z80:11cyc, R800:3cyc
+00c013: 21 20 80
+
+[	LD [ 0X8008 ] , HL] Z80:17cyc, R800:7cyc
+00c016: 22 08 80
+
+[	LD HL , 0X8021] Z80:11cyc, R800:3cyc
+00c019: 21 21 80
+
+[	LD [ 0XF676 ] , HL] Z80:17cyc, R800:7cyc
+00c01c: 22 76 f6
+
+[	XOR A , A] Z80:5cyc, R800:1cyc
+00c01f: af
+
+[	LD [ 0X8020 ] , A] Z80:14cyc, R800:6cyc
+00c020: 32 20 80
+
+[	RET] Z80:11cyc, R800:5cyc
+00c023: c9
+
+[END_ADDRESS ::]
+	global label address: 0x00c024
+
+<< label >>
+END_ADDRESS 49188 ( 0xc024 )
+START_ADDRESS 49152 ( 0xc000 )
