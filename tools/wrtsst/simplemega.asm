@@ -1,7 +1,7 @@
 ; -----------------------------------------------------------------------------
-;   Simple64K
+;   SimpleMegaROM
 ;
-;   Copyright (C)2022 Takayuki Hara (HRA!)
+;   Copyright (C)2023 Takayuki Hara (HRA!)
 ;
 ;    以下に定める条件に従い、本ソフトウェアおよび関連文書のファイル（以下「ソフトウェア」）
 ;  の複製を取得するすべての人に対し、ソフトウェアを無制限に扱うことを無償で許可します。
@@ -38,24 +38,24 @@
 ; -----------------------------------------------------------------------------
 ; FlashROM command address
 ; -----------------------------------------------------------------------------
-SIMPLE_CMD_2AAA		:= 0x2AAA
-SIMPLE_CMD_5555		:= 0x5555
-PPI_PRIMARY_SLOT	:= 0xA8
+SMEGA_CMD_2AAA		:= 0x2AAA
+SMEGA_CMD_5555		:= 0x5555
+SMEGA_BANK_REGISTER	:= 0x8000
 
 ; -----------------------------------------------------------------------------
-; is_slot_simple64k
+; is_slot_simple_mega
 ; input:
 ;    a ..... Target slot
 ; output:
-;    Zf ................... 0: not Simple64k, 1: Simple64k
+;    Zf ................... 0: not SimpleMegaROM, 1: SimpleMegaROM
 ;    [manufacture_id] ..... Manufacture ID/Device ID
 ; break:
 ;    all
 ; comment:
 ;    This is where all of page0-3 are called in the RAM slots.
 ; -----------------------------------------------------------------------------
-			scope	is_slot_simple64k
-is_slot_simple64k::
+			scope	is_slot_simple_mega
+is_slot_simple_mega::
 			or		a, a
 			jp		m, not_support_extended_slot
 
@@ -73,13 +73,13 @@ is_slot_simple64k::
 			ld		b, 0x80
 l1:
 			call	is_rom
-			jr		z, not_simple64k
+			jr		z, not_simple_mega
 			add		hl, de
 			djnz	l1
 
 			call	restore_dos_slot			; EI
 			call	transfer_to_page2
-			call	simple64k_p2_get_id
+			call	simple_mega_p2_get_id
 
 			ld		a, [manufacture_id]
 			call	get_manufacture_name
@@ -88,7 +88,7 @@ l1:
 			ld		a, [manufacture_id + 1]
 			call	get_device_name
 			ret
-not_simple64k:
+not_simple_mega:
 not_support_extended_slot:
 			xor		a, a
 			inc		a
@@ -96,7 +96,7 @@ not_support_extended_slot:
 			endscope
 
 ; -----------------------------------------------------------------------------
-; setup_slot_simple64k
+; setup_slot_simple_mega
 ; input:
 ;    a ..... Target slot
 ; output:
@@ -107,28 +107,28 @@ not_support_extended_slot:
 ; comment:
 ;    none
 ; -----------------------------------------------------------------------------
-			scope	setup_slot_simple64k
-setup_slot_simple64k::
-			ld		a, 64
-			ld		[rom_size], a			; 64KB
+			scope	setup_slot_simple_mega
+setup_slot_simple_mega::
+			ld		a, 128
+			ld		[rom_size], a			; 128KB
 
 			; Setup
-			ld		hl, simple64k_flash_jump_table
+			ld		hl, simple_mega_flash_jump_table
 			call	setup_flash_command
 
 			xor		a, a
 			ret
 
-simple64k_flash_jump_table:
-			jp		simple64k_p2_flash_chip_erase
-			jp		simple64k_flash_write_8kb
-			jp		simple64k_set_bank
-			jp		simple64k_get_start_bank
-			jp		simple64k_finish
+simple_mega_flash_jump_table:
+			jp		simple_mega_p2_flash_chip_erase
+			jp		simple_mega_flash_write_8kb
+			jp		simple_mega_set_bank
+			jp		simple_mega_get_start_bank
+			jp		simple_mega_finish
 			endscope
 
 ; -----------------------------------------------------------------------------
-; simple64k_set_bank
+; simple_mega_set_bank
 ; input:
 ;    a ..... BANK ID
 ; output:
@@ -138,14 +138,14 @@ simple64k_flash_jump_table:
 ; comment:
 ;
 ; -----------------------------------------------------------------------------
-			scope	simple64k_set_bank
-simple64k_set_bank::
+			scope	simple_mega_set_bank
+simple_mega_set_bank::
 			ld		[bank_back], a
 			ret
 			endscope
 
 ; -----------------------------------------------------------------------------
-; simple64k_get_start_bank
+; simple_mega_get_start_bank
 ; input:
 ;    hl ..... target size [KB]
 ; output:
@@ -156,8 +156,8 @@ simple64k_set_bank::
 ; comment:
 ;
 ; -----------------------------------------------------------------------------
-			scope	simple64k_get_start_bank
-simple64k_get_start_bank::
+			scope	simple_mega_get_start_bank
+simple_mega_get_start_bank::
 			ld		a, h
 			or		a, a
 			scf
@@ -204,7 +204,7 @@ target_address_request:
 			endscope
 
 ; -----------------------------------------------------------------------------
-; simple64k_finish
+; simple_mega_finish
 ; input:
 ;    none
 ; output:
@@ -214,8 +214,8 @@ target_address_request:
 ; comment:
 ;
 ; -----------------------------------------------------------------------------
-			scope	simple64k_finish
-simple64k_finish::
+			scope	simple_mega_finish
+simple_mega_finish::
 			ret
 			endscope
 
@@ -231,18 +231,18 @@ simple64k_finish::
 ;    This is where all of page0-3 are called in the RAM slots.
 ;    Routines that run on Page2 are transferred to Page2.
 ; -----------------------------------------------------------------------------
-			scope	transfer_to_page2
-transfer_to_page2::
+			scope	transfer_to_page2_smega
+transfer_to_page2_smega::
 			; transfer subroutines for page2
-			ld		hl, transfer_to_page2_start
-			ld		de, page2_start
-			ld		bc, page2_end - page2_start
+			ld		hl, transfer_to_page2_smega_start
+			ld		de, page2_smega_start
+			ld		bc, page2_end - page2_smega_start
 			ldir
 			ret
 			endscope
 
 ; -----------------------------------------------------------------------------
-; simple64k_flash_write_8kb
+; simple_mega_flash_write_8kb
 ; input:
 ;    none
 ; output:
@@ -257,28 +257,38 @@ transfer_to_page2::
 ;       1        0x2000-0x3FFF   page2      0x20
 ;       2        0x4000-0x5FFF   page2      0x40
 ;       3        0x6000-0x7FFF   page2      0x60
-;       4        0x8000-0x9FFF   page3      0x80
-;       5        0xA000-0xBFFF   page3      0xA0
+;       4        0x8000-0x9FFF   page3      0x80        : with BankRegister
+;       5        0xA000-0xBFFF   page3      0xA0        : with BankRegister
 ;       6        0xC000-0xDFFF   page2      0xC0
 ;       7        0xE000-0xFFFF   page2      0xE0
+;       8        0x0000-0x1FFF   page2      0x00
+;       9        0x2000-0x3FFF   page2      0x20
+;       10       0x4000-0x5FFF   page2      0x40
+;       11       0x6000-0x7FFF   page2      0x60
+;       12       0x8000-0x9FFF   page3      0x80        : with BankRegister
+;       13       0xA000-0xBFFF   page3      0xA0        : with BankRegister
+;       14       0xC000-0xDFFF   page2      0xC0
+;       15       0xE000-0xFFFF   page2      0xE0
 ;
 ; -----------------------------------------------------------------------------
-			scope	simple64k_flash_write_8kb
-simple64k_flash_write_8kb::
+			scope	simple_mega_flash_write_8kb
+simple_mega_flash_write_8kb::
 			ld		a, [bank_back]
 			; HL = A * 0x2000
 			rrca
 			rrca
 			rrca
+			ld		[simple_mega_bank_id], a			; bit0 is bank ID
+			and		a, 0xE0
 			ld		h, a
 			ld		l, 0
 
-			cp		a, 0x80				; goto page3 when 0x80 or 0xA0, goto page2 when others
+			cp		a, 0x80								; goto page3 when 0x80 or 0xA0, goto page2 when others
 			jr		z, page3
 			cp		a, 0xA0
 			jr		z, page3
 page2:
-			call	simple64k_p2_flash_write_8kb
+			call	simple_mega_p2_flash_write_8kb
 			ret
 page3:
 			di
@@ -303,7 +313,7 @@ page3:
 			ld		[save_sp], sp
 			ld		sp, 0xFFFF
 			; Initialize stack pointer
-			call	simple64k_p3_flash_write_8kb
+			call	simple_mega_p3_flash_write_8kb
 			; restore stack pointer
 			ld		sp, [save_sp]
 			; restore page3 from page1
@@ -315,16 +325,18 @@ page3:
 			ret
 save_sp:
 			dw		0
+simple_mega_bank_id::
+			db		0
 			endscope
 
 ; -----------------------------------------------------------------------------
 ; Programs to be placed on A000h- (PAGE2)
 ; -----------------------------------------------------------------------------
-transfer_to_page2_start::
+transfer_to_page2_smega_start::
 			org		0xA000
-page2_start::
+page2_smega_start::
 ; -----------------------------------------------------------------------------
-; simple64k_p2_setup_slot
+; simple_mega_p2_setup_slot
 ; input:
 ;    none
 ; output:
@@ -334,8 +346,8 @@ page2_start::
 ; comment:
 ;    none
 ; -----------------------------------------------------------------------------
-			scope	simple64k_p2_setup_slot
-simple64k_p2_setup_slot::
+			scope	simple_mega_p2_setup_slot
+simple_mega_p2_setup_slot::
 			; save target slot
 			ld		a, [target_slot]
 			; primary slot
@@ -359,7 +371,7 @@ simple64k_p2_setup_slot::
 			endscope
 
 ; -----------------------------------------------------------------------------
-; simple64k_p2_restore_slot
+; simple_mega_p2_restore_slot
 ; input:
 ;    none
 ; output:
@@ -369,8 +381,8 @@ simple64k_p2_setup_slot::
 ; comment:
 ;    none
 ; -----------------------------------------------------------------------------
-			scope	simple64k_p2_restore_slot
-simple64k_p2_restore_slot::
+			scope	simple_mega_p2_restore_slot
+simple_mega_p2_restore_slot::
 			; restore primary slot
 			ld		a, [p2_save_primary]
 			out		[PPI_PRIMARY_SLOT], a
@@ -378,7 +390,7 @@ simple64k_p2_restore_slot::
 			endscope
 
 ; -----------------------------------------------------------------------------
-; get_id_simple64k
+; get_id_simple_mega
 ; input:
 ;    none
 ; output:
@@ -389,34 +401,34 @@ simple64k_p2_restore_slot::
 ; comment:
 ;    none
 ; -----------------------------------------------------------------------------
-			scope	simple64k_p2_get_id
-simple64k_p2_get_id::
+			scope	simple_mega_p2_get_id
+simple_mega_p2_get_id::
 			di
 			; Initialize stack pointer
 			ld		[p2_save_sp], sp
 			ld		sp, 0xBFFF
 			; Change slot
-			call	simple64k_p2_setup_slot
+			call	simple_mega_p2_setup_slot
 			; Get Manufacture ID
 			ld		hl, 0x0000
 			ld		a, 0xAA
-			ld		[SIMPLE_CMD_5555], a
+			ld		[SMEGA_CMD_5555], a
 			ld		a, 0x55
-			ld		[SIMPLE_CMD_2AAA], a
+			ld		[SMEGA_CMD_2AAA], a
 			ld		a, 0x90
-			ld		[SIMPLE_CMD_5555], a
+			ld		[SMEGA_CMD_5555], a
 			ld		e, [hl]
 			inc		hl
 			ld		d, [hl]
 
 			ld		a, 0xAA
-			ld		[SIMPLE_CMD_5555], a
+			ld		[SMEGA_CMD_5555], a
 			ld		a, 0x55
-			ld		[SIMPLE_CMD_2AAA], a
+			ld		[SMEGA_CMD_2AAA], a
 			ld		a, 0xF0
-			ld		[SIMPLE_CMD_5555], a
+			ld		[SMEGA_CMD_5555], a
 			; Restore slot
-			call	simple64k_p2_restore_slot
+			call	simple_mega_p2_restore_slot
 			ld		[manufacture_id], de
 			; Restore stack pointer
 			ld		sp, [p2_save_sp]
@@ -425,7 +437,7 @@ simple64k_p2_get_id::
 			endscope
 
 ; -----------------------------------------------------------------------------
-; simple64k_p2_flash_chip_erase
+; simple_mega_p2_flash_chip_erase
 ; input:
 ;    none
 ; output:
@@ -435,30 +447,30 @@ simple64k_p2_get_id::
 ; comment:
 ;    none
 ; -----------------------------------------------------------------------------
-			scope	simple64k_p2_flash_chip_erase
-simple64k_p2_flash_chip_erase::
+			scope	simple_mega_p2_flash_chip_erase
+simple_mega_p2_flash_chip_erase::
 			di
 			; Initialize stack pointer
 			ld		[p2_save_sp], sp
 			ld		sp, 0xBFFF
 			; Change slot
-			call	simple64k_p2_setup_slot
+			call	simple_mega_p2_setup_slot
 			; Get Manufacture ID
 			ld		hl, 0x0000
 			ld		a, 0xAA
-			ld		[SIMPLE_CMD_5555], a
+			ld		[SMEGA_CMD_5555], a
 			ld		a, 0x55
-			ld		[SIMPLE_CMD_2AAA], a
+			ld		[SMEGA_CMD_2AAA], a
 			ld		a, 0x80
-			ld		[SIMPLE_CMD_5555], a
+			ld		[SMEGA_CMD_5555], a
 			ld		a, 0xAA
-			ld		[SIMPLE_CMD_5555], a
+			ld		[SMEGA_CMD_5555], a
 			ld		a, 0x55
-			ld		[SIMPLE_CMD_2AAA], a
+			ld		[SMEGA_CMD_2AAA], a
 			ld		a, 0x10
-			ld		[SIMPLE_CMD_5555], a
+			ld		[SMEGA_CMD_5555], a
 			; Restore slot
-			call	simple64k_p2_restore_slot
+			call	simple_mega_p2_restore_slot
 			; Restore stack pointer
 			ld		sp, [p2_save_sp]
 			; Wait
@@ -473,7 +485,7 @@ wait_l1:
 			endscope
 
 ; -----------------------------------------------------------------------------
-; simple64k_p2_flash_write_8kb
+; simple_mega_p2_flash_write_8kb
 ; input:
 ;    HL .... Target address
 ; output:
@@ -483,11 +495,11 @@ wait_l1:
 ; comment:
 ;    Copies the contents of 0x2000-0x3FFF to the area appearing in 0x6000-0x7FFF.
 ; -----------------------------------------------------------------------------
-			scope	simple64k_p2_flash_write_8kb
-simple64k_p2_flash_write_8kb::
+			scope	simple_mega_p2_flash_write_8kb
+simple_mega_p2_flash_write_8kb::
 			di
 			; Initialize stack pointer
-			ld		[p2_save_sp], sp
+			ld		[p2_save_smega_sp], sp
 			ld		sp, 0xBFFF
 			push	hl
 			; Transfer write datas
@@ -496,18 +508,18 @@ simple64k_p2_flash_write_8kb::
 			ld		bc, 0x2000
 			ldir
 			; Change slot
-			call	simple64k_p2_setup_slot
+			call	simple_mega_p2_setup_slot
 			pop		hl
 
 			ld		de, 0x8000				; source address
 			ld		bc, 0x2000				; transfer bytes
 loop_of_bc:
 			ld		a, 0xAA
-			ld		[SIMPLE_CMD_5555], a
+			ld		[SMEGA_CMD_5555], a
 			ld		a, 0x55
-			ld		[SIMPLE_CMD_2AAA], a
+			ld		[SMEGA_CMD_2AAA], a
 			ld		a, 0xA0
-			ld		[SIMPLE_CMD_5555], a
+			ld		[SMEGA_CMD_5555], a
 			ld		a, [de]
 			ld		[hl], a
 
@@ -523,8 +535,8 @@ wait_for_write_complete:
 			jr		nz, wait_for_write_complete
 write_error:
 			pop		bc
-			call	simple64k_p2_restore_slot
-			ld		sp, [p2_save_sp]
+			call	simple_mega_p2_restore_slot
+			ld		sp, [p2_save_smega_sp]
 			ei
 			scf
 			ret
@@ -538,29 +550,29 @@ write_complete:
 			or		a, c
 			jr		nz, loop_of_bc
 
-			call	simple64k_p2_restore_slot
-			ld		sp, [p2_save_sp]
+			call	simple_mega_p2_restore_slot
+			ld		sp, [p2_save_smega_sp]
 			ei
 			or		a, a					; Cf = 0
 			ret
 			endscope
 
-p2_save_sp::
+p2_save_smega_sp::
 			dw		0
-p2_save_primary::
+p2_save_smega_primary::
 			db		0
-page2_end::
-			org		transfer_to_page2_start + page2_end - page2_start
-transfer_to_page2_end::
+page2_smega_end::
+			org		transfer_to_page2_smega_start + page2_smega_end - page2_smega_start
+transfer_to_page2_smega_end::
 
 ; -----------------------------------------------------------------------------
 ; Programs to be placed on E000h- (PAGE3)
 ; -----------------------------------------------------------------------------
-transfer_to_page3_start::
+transfer_to_page3_smega_start::
 			org		0xE000
-page3_start::
+page3_smega_start::
 ; -----------------------------------------------------------------------------
-; simple64k_p3_setup_slot
+; simple_mega_p3_setup_slot
 ; input:
 ;    none
 ; output:
@@ -570,8 +582,8 @@ page3_start::
 ; comment:
 ;    none
 ; -----------------------------------------------------------------------------
-			scope	simple64k_p3_setup_slot
-simple64k_p3_setup_slot::
+			scope	simple_mega_p3_setup_slot
+simple_mega_p3_setup_slot::
 			; save target slot
 			ld		a, [target_slot]
 			; primary slot
@@ -585,7 +597,7 @@ simple64k_p3_setup_slot::
 			or		a, b						; 00ffffff
 			ld		b, a
 			in		a, [PPI_PRIMARY_SLOT]
-			ld		[p3_save_primary], a
+			ld		[p3_save_smega_primary], a
 			and		a, 0b11000000				; rr000000
 			or		a, b						; rrffffff
 			out		[PPI_PRIMARY_SLOT], a
@@ -593,7 +605,7 @@ simple64k_p3_setup_slot::
 			endscope
 
 ; -----------------------------------------------------------------------------
-; simple64k_p3_restore_slot
+; simple_mega_p3_restore_slot
 ; input:
 ;    none
 ; output:
@@ -603,16 +615,16 @@ simple64k_p3_setup_slot::
 ; comment:
 ;    none
 ; -----------------------------------------------------------------------------
-			scope	simple64k_p3_restore_slot
-simple64k_p3_restore_slot::
+			scope	simple_mega_p3_restore_slot
+simple_mega_p3_restore_slot::
 			; restore primary slot
-			ld		a, [p3_save_primary]
+			ld		a, [p3_save_smega_primary]
 			out		[PPI_PRIMARY_SLOT], a
 			ret
 			endscope
 
 ; -----------------------------------------------------------------------------
-; simple64k_flash_write_8kb_page3
+; simple_mega_flash_write_8kb_page3
 ; input:
 ;    HL .... Target address
 ; output:
@@ -622,31 +634,32 @@ simple64k_p3_restore_slot::
 ; comment:
 ;    Copies the contents of 0x2000-0x3FFF to the area appearing in 0x6000-0x7FFF.
 ; -----------------------------------------------------------------------------
-			scope	simple64k_p3_flash_write_8kb
-simple64k_p3_flash_write_8kb::
+			scope	simple_mega_p3_flash_write_8kb
+simple_mega_p3_flash_write_8kb::
 			; Change slot
-			call	simple64k_p3_setup_slot	; SAVE HL
+			call	simple_mega_p3_setup_slot	; SAVE HL
 
 			ld		de, 0xC000				; source address
 			ld		bc, 0x2000				; transfer bytes
 loop_of_bc:
-			xor		a, a
-			ld		[SMEGA_BANK_REGISTER], a	; SimpleMegaROM を Simple64k として書き込んでいる場合に確実に bank0 に書き込むようにするおまじない
+			ld		a, [ simple_mega_bank_id ]
+			and		a, 1
+			ld		[SMEGA_BANK_REGISTER], a
 			ld		a, 0xAA
-			ld		[SIMPLE_CMD_5555], a
+			ld		[SMEGA_CMD_5555], a
 			ld		a, 0x55
-			ld		[SIMPLE_CMD_2AAA], a
+			ld		[SMEGA_CMD_2AAA], a
 			ld		a, 0xA0
-			ld		[SIMPLE_CMD_5555], a
+			ld		[SMEGA_CMD_5555], a
 			ld		a, [de]
 			ld		[hl], a
 
 			push	bc
 			ld		bc, 0					; timeout 65536 count
 
-			; SimpleMegaROM だった場合、書き込んだ値の bit0 の値に応じて、バンクまで切り替わってしまうので、所望のバンクに戻す
-			nop
-			xor		a, a
+			; 書き込んだ値の bit0 の値に応じて、バンクまで切り替わってしまうので、所望のバンクに戻す
+			ld		a, [ simple_mega_bank_id ]
+			and		a, 1
 			ld		[SMEGA_BANK_REGISTER], a
 			; 書き込み完了待ち
 wait_for_write_complete:
@@ -659,7 +672,7 @@ wait_for_write_complete:
 			jr		nz, wait_for_write_complete
 write_error:
 			pop		bc
-			call	simple64k_p3_restore_slot
+			call	simple_mega_p3_restore_slot
 			scf
 			ret
 write_complete:
@@ -672,13 +685,13 @@ write_complete:
 			or		a, c
 			jr		nz, loop_of_bc
 
-			call	simple64k_p3_restore_slot
+			call	simple_mega_p3_restore_slot
 			or		a, a					; Cf = 0
 			ret
 			endscope
 
-p3_save_primary::
+p3_save_smega_primary::
 			db		0
-page3_end::
-			org		transfer_to_page3_start + page3_end - page3_start
-transfer_to_page3_end::
+page3_smega_end::
+			org		transfer_to_page3_smega_start + page3_smega_end - page3_smega_start
+transfer_to_page3_smega_end::
