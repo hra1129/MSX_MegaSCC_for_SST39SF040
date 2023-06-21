@@ -5210,8 +5210,8 @@ Programmed by t.hara
 [	LD A , L] Z80:5cyc, R800:2cyc
 000eb1: 7d
 
-[	CP A , 65] Z80:8cyc, R800:2cyc
-000eb2: fe 41
+[	CP A , 129] Z80:8cyc, R800:2cyc
+000eb2: fe 81
 
 [	CCF] Z80:5cyc, R800:1cyc
 000eb4: 3f

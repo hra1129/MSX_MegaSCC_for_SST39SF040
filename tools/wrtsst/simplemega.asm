@@ -164,7 +164,7 @@ simple_mega_get_start_bank::
 			ret		nz			; too BIG
 
 			ld		a, l
-			cp		a, 65
+			cp		a, 129
 			ccf
 			ret		c			; too BIG
 
