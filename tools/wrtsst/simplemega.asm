@@ -417,6 +417,7 @@ simple_mega_p2_get_id::
 			ld		[SMEGA_CMD_2AAA], a
 			ld		a, 0x90
 			ld		[SMEGA_CMD_5555], a
+			nop
 			ld		e, [hl]
 			inc		hl
 			ld		d, [hl]

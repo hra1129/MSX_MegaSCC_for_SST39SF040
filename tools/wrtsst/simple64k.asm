@@ -405,6 +405,7 @@ simple64k_p2_get_id::
 			ld		[SIMPLE_CMD_2AAA], a
 			ld		a, 0x90
 			ld		[SIMPLE_CMD_5555], a
+			nop
 			ld		e, [hl]
 			inc		hl
 			ld		d, [hl]

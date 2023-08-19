@@ -2,7 +2,7 @@
 ;   WRTSST
 ;   SST Flash ROM Writer
 ;
-;   Copyright (C)2022 Takayuki Hara (HRA!)
+;   Copyright (C)2022-2023 Takayuki Hara (HRA!)
 ;
 ;    以下に定める条件に従い、本ソフトウェアおよび関連文書のファイル（以下「ソフトウェア」）
 ;  の複製を取得するすべての人に対し、ソフトウェアを無制限に扱うことを無償で許可します。
@@ -170,7 +170,7 @@ not_detected:
 			jr		puts_and_exit
 
 title_message:
-			ds		"WRTSST [SST FlashROM Writer] v1.03\r\n"
+			ds		"WRTSST [SST FlashROM Writer] v1.04\r\n"
 			ds		"Copyright (C)2022-2023 HRA!\r\n\r\n"
 			db		0
 block_message:
