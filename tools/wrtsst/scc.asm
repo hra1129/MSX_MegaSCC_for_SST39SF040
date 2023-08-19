@@ -151,7 +151,6 @@ setup_slot_scc::
 			ld		[SCC_CMD_2AAA], a
 			ld		a, 0x90
 			ld		[SCC_CMD_5555], a
-			nop
 			ld		e, [hl]
 			inc		hl
 			ld		d, [hl]

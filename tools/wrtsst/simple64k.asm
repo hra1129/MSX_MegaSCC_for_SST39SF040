@@ -405,7 +405,6 @@ simple64k_p2_get_id::
 			ld		[SIMPLE_CMD_2AAA], a
 			ld		a, 0x90
 			ld		[SIMPLE_CMD_5555], a
-			nop
 			ld		e, [hl]
 			inc		hl
 			ld		d, [hl]
@@ -631,8 +630,6 @@ simple64k_p3_flash_write_8kb::
 			ld		de, 0xC000				; source address
 			ld		bc, 0x2000				; transfer bytes
 loop_of_bc:
-			xor		a, a
-			ld		[SMEGA_BANK_REGISTER], a	; SimpleMegaROM を Simple64k として書き込んでいる場合に確実に bank0 に書き込むようにするおまじない
 			ld		a, 0xAA
 			ld		[SIMPLE_CMD_5555], a
 			ld		a, 0x55
@@ -645,10 +642,6 @@ loop_of_bc:
 			push	bc
 			ld		bc, 0					; timeout 65536 count
 
-			; SimpleMegaROM だった場合、書き込んだ値の bit0 の値に応じて、バンクまで切り替わってしまうので、所望のバンクに戻す
-			nop
-			xor		a, a
-			ld		[SMEGA_BANK_REGISTER], a
 			; 書き込み完了待ち
 wait_for_write_complete:
 			nop

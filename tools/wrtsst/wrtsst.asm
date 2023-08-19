@@ -334,7 +334,7 @@ return_to_arg_check:
 option_t:
 			call	get_one
 			sub		a, '0'
-			cp		a, 4
+			cp		a, 3
 			jp		nc, usage
 			ld		[rom_type], a
 			jr		return_to_arg_check
@@ -515,7 +515,6 @@ usage_message:
 			ds		"    /T0 .. MegaSCC\r\n"
 			ds		"    /T1 .. ESE-RC755\r\n"
 			ds		"    /T2 .. Simple64k\r\n"
-			ds		"    /T3 .. SimpleMegaROM(128KB)\r\n"
 			db		0
 			endscope
 
@@ -721,16 +720,13 @@ detect_target::
 			dec			a
 			jr			z, check_rc755
 			dec			a
-			jr			z, check_simple64k
-			jr			check_simple_mega
+			jr			check_simple64k
 check_all:
 			call		check_megascc
 			ret			z
 			call		check_rc755
 			ret			z
 			jr			check_simple64k
-			ret			z
-			jr			check_simple_mega
 check_megascc:
 			ld			a, [target_slot]
 			call		is_slot_scc
@@ -744,18 +740,10 @@ check_rc755:
 check_simple64k:
 			ld			a, [file_size]
 			cp			a, 65						; ファイルサイズが 64KBを越える場合は、Simple64k ではないと判断する
-			ret			c
+			ret			nc
 			ld			a, [target_slot]
 			call		is_slot_simple64k
 			jp			z, detect_simple64k
-			ret										; Not detected
-check_simple_mega:
-			ld			a, [file_size]
-			cp			a, 129						; ファイルサイズが 128KBを越える場合は、SimpleMegaROM ではないと判断する
-			ret			c
-			ld			a, [target_slot]
-			call		is_slot_simple_mega
-			jp			z, detect_simple_mega
 			ret										; Not detected
 
 detect_scc:
@@ -780,14 +768,6 @@ detect_simple64k:
 			ld			a, [target_slot]
 			call		setup_slot_simple64k
 			ld			a, 2
-			ld			[rom_type], a
-			jp			common_process
-
-detect_simple_mega:
-			; It is confirmed that the specified slot is SimpleMegaROM.
-			ld			a, [target_slot]
-			call		setup_slot_simple_mega
-			ld			a, 3
 			ld			[rom_type], a
 			jp			common_process
 
@@ -865,16 +845,12 @@ rc755_message:
 			ds			"ESE-RC755\r\n"
 			db			0
 simple64k_message:
-			ds			"Simple64K or SimpleMegaROM\r\n"
-			db			0
-simple_mega_message:
-			ds			"SimpleMegaROM\r\n"
+			ds			"Simple64K\r\n"
 			db			0
 cartridge_type_table:
 			dw			mega_scc_message
 			dw			rc755_message
 			dw			simple64k_message
-			dw			simple_mega_message
 			endscope
 
 ; -----------------------------------------------------------------------------
@@ -893,7 +869,7 @@ manufacture_id::
 device_id::
 			db		0
 rom_type::
-			db		255					; 0: MegaSCC, 1: RC755, 2: Simple64K, 3: SimpleMegaROM(128KB)
+			db		255					; 0: MegaSCC, 1: RC755, 2: Simple64K
 progress_max::
 			db		0
 bank_back:
@@ -939,4 +915,3 @@ fcb_rn::
 			include	"scc.asm"
 			include	"ese_rc755.asm"
 			include	"simple64k.asm"
-			include	"simplemega.asm"

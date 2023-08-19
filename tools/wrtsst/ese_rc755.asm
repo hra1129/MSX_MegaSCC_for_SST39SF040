@@ -103,7 +103,6 @@ is_slot_rc755::
 			ld			[RC755_CMD_2AAA], a
 			ld			a, 0x90
 			ld			[RC755_CMD_5555], a
-			nop
 			ld			e, [hl]
 			inc			hl
 			ld			d, [hl]
